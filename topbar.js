@@ -113,7 +113,7 @@
   .topbar { padding-left: 10px; padding-right: 10px; gap: 4px; }
   .topbar-pill, .topbar-water-pill { padding: 7px 9px; gap: 5px; }
   .topbar-pill-label { font-size: 9px; letter-spacing: 0.10em; }
-  .topbar-pill-count { font-size: 11px; }
+  .topbar-pill-count { display: none; }
   .topbar-water-add { width: 32px; font-size: 16px; }
 }
 @media (max-width: 380px) {
