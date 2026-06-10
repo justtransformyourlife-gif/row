@@ -33,9 +33,8 @@ const CONFIG = {
   // Default unit. Options: "bottle" | "glass" | "oz" | "ml"
   unit: "bottle",
 
-  // Volume per "bottle" / "glass" in ml. 500 = standard water bottle,
-  // 250 = a typical drinking glass.
-  bottleMl: 500,
+  // 1L bottles (target 3/day). Change bottleMl: 500 to go back to 500ml.
+  bottleMl: 1000,
   glassMl: 250,
 
   // Default user profile (gets overwritten by what you save in Settings).
@@ -498,7 +497,7 @@ html, body {
     <div class="water-actions">
       <button class="water-minus-btn" id="waterMinusBtn" type="button" aria-label="Undo last">−</button>
       <button class="water-plus-btn" id="waterPlusBtn" type="button">
-        <span id="waterPlusLabel">Drank a bottle</span>
+        <span id="waterPlusLabel">Drank 1L</span>
         <span>↑</span>
       </button>
     </div>
