@@ -27,6 +27,113 @@
       + String(d.getDate()).padStart(2, '0');
   }
 
+  // 3:30 AM boundary — same logic as nutrition tracker
+  function activeDayStr() {
+    const RESET_MS = (3 * 60 + 30) * 60 * 1000;
+    const d = new Date(Date.now() - RESET_MS);
+    return d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ls(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+  }
+
+  function buildDashboardContext() {
+    const today   = activeDayStr();
+    const now     = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    const lines   = [`[DASHBOARD SNAPSHOT — ${dateStr} ${timeStr}]`];
+
+    // ── Water ─────────────────────────────────────────────────────────
+    const water = ls(K_WATER);
+    if (water) {
+      const bottles  = (water.logs && water.logs[today]) || 0;
+      const bottleMl = water.bottleMl || 1000;
+      const liters   = ((bottles * bottleMl) / 1000).toFixed(1);
+      const target   = water.dailyTarget || 3;
+      lines.push(`WATER: ${bottles} bottle${bottles !== 1 ? 's' : ''} (${liters}L) of ${target} target today`);
+    }
+
+    // ── Weight ────────────────────────────────────────────────────────
+    const weights = ls('po_coach_weights');
+    if (Array.isArray(weights) && weights.length) {
+      const last = weights[weights.length - 1];
+      lines.push(`WEIGHT: ${last.weight} kg (logged ${last.dateKey})`);
+    }
+
+    // ── Nutrition ─────────────────────────────────────────────────────
+    const nutrition = ls('po_coach_nutrition');
+    if (Array.isArray(nutrition)) {
+      const todayMeals = nutrition.filter(m => m.dateKey === today);
+      if (todayMeals.length) {
+        const counts = { clean: 0, heavy: 0, anxiety: 0 };
+        todayMeals.forEach(m => { if (m.energy in counts) counts[m.energy]++; });
+        const parts = [];
+        if (counts.clean)   parts.push(`${counts.clean} Clean`);
+        if (counts.heavy)   parts.push(`${counts.heavy} Heavy`);
+        if (counts.anxiety) parts.push(`${counts.anxiety} Anxiety`);
+        lines.push(`NUTRITION: ${todayMeals.length} meals today (${parts.join(', ')})`);
+        const recent = todayMeals.slice(-3).map(m => m.name).join(', ');
+        lines.push(`  Last meals: ${recent}`);
+      } else {
+        lines.push(`NUTRITION: No meals logged yet today`);
+      }
+    }
+
+    // ── Workout ───────────────────────────────────────────────────────
+    const coachState = ls('po_coach_v1');
+    const workoutDone = ls('po_coach_workout_done');
+    if (coachState) {
+      const split = coachState.split || 'unknown';
+      const done  = workoutDone && workoutDone.date === today ? '✓ Done' : 'Not done';
+      lines.push(`WORKOUT: ${split} — ${done}`);
+    }
+
+    // ── Setter / Mantilla ─────────────────────────────────────────────
+    const setter = ls(K_SETTER);
+    if (setter) {
+      const isToday = setter.date === today;
+      const cl = setter.checklist || {};
+      const kp = setter.kpis || {};
+      const checks = [
+        cl.alignment_call && 'alignment call',
+        cl.lead_list      && 'lead list',
+        cl.scripts        && 'scripts',
+        cl.outreach_sent  && 'outreach sent',
+      ].filter(Boolean);
+      lines.push(`SETTER (Mantilla) — ${isToday ? 'today' : 'last: ' + (setter.date || 'none')}:`);
+      lines.push(`  KPIs: ${kp.dms || 0} DMs, ${kp.replies || 0} replies, ${kp.calls || 0} calls`);
+      if (checks.length) lines.push(`  Done: ${checks.join(', ')}`);
+      if (setter.feedback) lines.push(`  Feedback: "${setter.feedback}"`);
+    }
+
+    // ── Cashflow ──────────────────────────────────────────────────────
+    const cf = ls(K_CF);
+    if (cf && Array.isArray(cf.transactions) && cf.transactions.length) {
+      const todayTx = cf.transactions.filter(t => t.date === today);
+      const allIn  = cf.transactions.filter(t => t.type === 'in').reduce((s, t) => s + t.amount, 0);
+      const allOut = cf.transactions.filter(t => t.type === 'out').reduce((s, t) => s + t.amount, 0);
+      lines.push(`CASHFLOW: Total in $${allIn.toLocaleString()} / out $${allOut.toLocaleString()} (net $${(allIn - allOut).toLocaleString()})`);
+      if (todayTx.length) {
+        const todayIn  = todayTx.filter(t => t.type === 'in').reduce((s, t) => s + t.amount, 0);
+        const todayOut = todayTx.filter(t => t.type === 'out').reduce((s, t) => s + t.amount, 0);
+        lines.push(`  Today: +$${todayIn.toLocaleString()} in, -$${todayOut.toLocaleString()} out`);
+      }
+    }
+
+    // ── KPIs / Outreach / Content ─────────────────────────────────────
+    const kpis = ls(K_KPIS);
+    if (kpis) {
+      const isToday = kpis.date === today;
+      lines.push(`OUTREACH: ${isToday ? kpis.dms || 0 : 0} DMs, ${isToday ? kpis.calls || 0 : 0} calls today | Content streak: ${kpis.streak || 0} days`);
+    }
+
+    return lines.join('\n');
+  }
+
   const isJarvisPage = location.pathname.replace(/\\/g, '/').endsWith('jarvis.html');
 
   // ══════════════════════════════════════════════════════════════════════
@@ -557,7 +664,11 @@ Line 3 — One sharp next action or accountability challenge`;
   async function groqCall(withTools) {
     const body = {
       model: GROQ_MODEL,
-      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...conversation],
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: buildDashboardContext() },
+        ...conversation
+      ],
       temperature: 0.65,
       max_tokens: 512,
     };
