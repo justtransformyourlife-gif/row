@@ -518,7 +518,7 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // GEMINI API
+  // GROQ API
   // ══════════════════════════════════════════════════════════════════════
   const SYSTEM_PROMPT = `You are JARVIS — the personal AI command system for Nicolas.
 
@@ -528,7 +528,9 @@ PERSONALITY: Elite performance coach meets precision AI. Direct, sharp, brief. R
 
 COACHING STYLE: When not triggering functions, deliver elite-level personal development and productivity coaching. Be provocative and direct. Ask powerful questions. Hold Nicolas accountable.
 
-FUNCTION PROTOCOL: Extract ALL data points from natural speech and call the appropriate functions simultaneously. After executing, deliver a 2-4 line debrief:
+FUNCTION PROTOCOL: Only call functions when the message contains clear data to log (water intake, setter activity, money, outreach numbers, content posts). Greetings, questions, and general conversation must NEVER trigger a function call — just reply directly.
+
+After executing a function, deliver a 2-4 line debrief:
 Line 1 — What was logged (facts, numbers)
 Line 2 — Current status snapshot
 Line 3 — One sharp next action or accountability challenge
@@ -557,18 +559,21 @@ TONE:
         parameters: { type: 'object', properties: { type: { type: 'string' } } } } },
   ];
 
-  async function groqCall() {
+  async function groqCall(withTools) {
+    const body = {
+      model: GROQ_MODEL,
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...conversation],
+      temperature: 0.65,
+      max_tokens: 512,
+    };
+    if (withTools !== false) {
+      body.tools = TOOLS;
+      body.tool_choice = 'auto';
+    }
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_KEY },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: conversation,
-        tools: TOOLS,
-        tool_choice: 'auto',
-        temperature: 0.65,
-        max_tokens: 512,
-      })
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const e = await res.json().catch(() => ({}));
@@ -617,25 +622,40 @@ TONE:
     appendThinking();
 
     try {
+      let useTools = true;
       for (let i = 0; i < 6; i++) {
-        const resp    = await groqCall();
+        const resp   = await groqCall(useTools);
         removeThinking();
-        const msg     = resp.choices?.[0]?.message;
-        const finish  = resp.choices?.[0]?.finish_reason;
+        const choice = resp.choices?.[0];
+        const msg    = choice?.message;
+        const finish = choice?.finish_reason;
 
         if (!msg) break;
-        conversation.push(msg);
 
+        // Tool call attempted — execute and loop
         if (finish === 'tool_calls' && msg.tool_calls?.length) {
+          let allParsed = true;
+          const toolResults = [];
           for (const tc of msg.tool_calls) {
             let args = {};
-            try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
-            const result = runFn(tc.function.name, args);
-            conversation.push({ role: 'tool', tool_call_id: tc.id, content: result });
+            try { args = JSON.parse(tc.function.arguments || '{}'); }
+            catch { allParsed = false; break; }
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: runFn(tc.function.name, args) });
           }
+          // If args were malformed, strip the bad turn and retry without tools
+          if (!allParsed) {
+            useTools = false;
+            if (i < 5) { appendThinking(); continue; }
+            break;
+          }
+          conversation.push(msg);
+          toolResults.forEach(r => conversation.push(r));
           if (i < 5) { appendThinking(); continue; }
+          break;
         }
 
+        // Plain text reply
+        conversation.push(msg);
         const finalTxt = msg.content || '';
         if (finalTxt) {
           appendMsg('jarvis', finalTxt);
@@ -646,9 +666,23 @@ TONE:
       }
     } catch (err) {
       removeThinking();
-      const msg = '⚠ ' + (err.message || 'Could not reach Groq.');
-      appendMsg('jarvis', msg);
-      emit('response', { text: msg, error: true });
+      const errMsg = err.message || 'Could not reach Groq.';
+      // Tool-call failure from API side → retry silently without tools
+      if (errMsg.toLowerCase().includes('function') || errMsg.toLowerCase().includes('tool')) {
+        try {
+          const resp2  = await groqCall(false);
+          const txt    = resp2.choices?.[0]?.message?.content || '';
+          if (txt) {
+            conversation.push(resp2.choices[0].message);
+            appendMsg('jarvis', txt);
+            emit('response', { text: txt });
+            if (currentMode === 'call') { setCallState('speaking'); showLastResponse(txt); speakJarvis(txt); }
+          }
+        } catch { /* ignore second failure */ }
+      } else {
+        appendMsg('jarvis', '⚠ ' + errMsg);
+        emit('response', { text: errMsg, error: true });
+      }
     }
 
     isProcessing = false;
