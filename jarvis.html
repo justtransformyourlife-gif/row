@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
-<title>JARVIS</title>
+<title>JARVIS // Command System</title>
 <script src="topbar.js" defer></script>
 <style>
 :root {
@@ -32,8 +32,8 @@ html, body {
 body::before {
   content: ''; position: fixed; inset: 0; z-index: 0;
   background:
-    radial-gradient(ellipse 60% 50% at 10% 15%, rgba(0,229,255,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 90% 85%, rgba(242,192,99,0.05) 0%, transparent 55%);
+    radial-gradient(ellipse 60% 50% at 10% 15%, rgba(0,229,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 85%, rgba(242,192,99,0.06) 0%, transparent 55%);
   pointer-events: none;
 }
 body::after {
@@ -42,15 +42,213 @@ body::after {
   background-size: 3px 3px; pointer-events: none;
 }
 
-/* ── PAGE ──────────────────────────────────────────────────────────────── */
 .page {
   position: relative; z-index: 1;
   max-width: 980px; margin: 0 auto;
-  /* extra bottom padding so FAB never covers content */
   padding: 0 16px 140px;
+  display: flex; flex-direction: column; gap: 20px;
 }
 
-/* ── MODULE GRID ───────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   JARVIS CARD — Dual Interface
+   ═══════════════════════════════════════════════════════════════ */
+.jcard {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(0,229,255,0.16);
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+}
+/* Top glow line */
+.jcard::before {
+  content: ''; position: absolute; top: 0; left: 8%; right: 8%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,0.55), rgba(242,192,99,0.25), transparent);
+  pointer-events: none;
+}
+
+/* Header */
+.jcard-hd {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  position: relative;
+}
+.jcard-orb {
+  font-size: 22px; color: var(--cyan);
+  filter: drop-shadow(0 0 10px rgba(0,229,255,0.55));
+}
+.jcard-brand { flex: 1; display: flex; align-items: baseline; gap: 10px; }
+.jcard-name {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 800;
+  letter-spacing: 0.20em; color: var(--cyan);
+}
+.jcard-tagline {
+  font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: 0.14em; color: var(--text-3); text-transform: uppercase;
+}
+.jcard-status-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--emerald);
+  animation: jc-dot-pulse 2.4s ease-in-out infinite; flex-shrink: 0;
+}
+@keyframes jc-dot-pulse {
+  0%,100% { opacity: 0.5; box-shadow: 0 0 0 0 rgba(107,227,164,0); }
+  50%      { opacity: 1;   box-shadow: 0 0 0 4px rgba(107,227,164,0.12); }
+}
+
+/* Mode toggle */
+.jcard-mode { display: flex; gap: 3px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 11px; }
+.jcard-mode-btn {
+  padding: 7px 16px; border-radius: 8px; border: none;
+  background: transparent; color: rgba(255,255,255,0.38);
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.jcard-mode-btn.active {
+  background: rgba(0,229,255,0.16); color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0,229,255,0.10);
+}
+.jcard-mode-btn.active.call {
+  background: rgba(242,192,99,0.14); color: var(--gold);
+  box-shadow: 0 0 12px rgba(242,192,99,0.10);
+}
+
+/* ── CHAT PANE ── */
+#jcChatPane { display: flex; flex-direction: column; }
+.jcard-convo {
+  min-height: 260px; max-height: 340px;
+  overflow-y: auto; padding: 16px 18px 10px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.jcard-empty {
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 30px 24px;
+  color: rgba(255,255,255,0.20); font-size: 13px; line-height: 1.8;
+  font-style: italic; flex: 1; min-height: 220px;
+}
+.jcard-msg {
+  max-width: 82%; padding: 10px 14px;
+  border-radius: 14px; font-size: 13px; line-height: 1.65;
+  animation: jc-msg-in 0.22s ease;
+}
+@keyframes jc-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.jcard-msg.user {
+  align-self: flex-end;
+  background: rgba(0,229,255,0.10); border: 1px solid rgba(0,229,255,0.20);
+  color: var(--text-1); border-bottom-right-radius: 4px;
+}
+.jcard-msg.jarvis {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  color: var(--text-2); border-bottom-left-radius: 4px;
+}
+.jcard-msg-lbl {
+  display: block; font-family: var(--font-mono);
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em;
+  color: var(--cyan); margin-bottom: 5px;
+}
+.jcard-thinking { display: flex; gap: 5px; align-items: center; padding: 2px 0; }
+.jcard-thinking span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--cyan); opacity: 0.2;
+  animation: jc-dot 1.4s ease-in-out infinite;
+}
+.jcard-thinking span:nth-child(2) { animation-delay: 0.22s; }
+.jcard-thinking span:nth-child(3) { animation-delay: 0.44s; }
+@keyframes jc-dot {
+  0%,80%,100% { opacity: 0.18; transform: scale(0.8); }
+  40%          { opacity: 1;    transform: scale(1); }
+}
+
+.jcard-input-row {
+  display: flex; gap: 8px; padding: 12px 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+#jcInput {
+  flex: 1; background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.09); border-radius: 12px;
+  color: var(--text-1); font-family: inherit; font-size: 13px;
+  padding: 10px 14px; outline: none; transition: border-color 0.2s;
+}
+#jcInput:focus { border-color: rgba(0,229,255,0.38); }
+#jcInput::placeholder { color: rgba(255,255,255,0.22); }
+.jcard-btn {
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  border: 1px solid rgba(0,229,255,0.22); background: rgba(0,229,255,0.10);
+  color: var(--cyan); font-size: 17px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; transition: all 0.18s;
+}
+.jcard-btn:hover { background: rgba(0,229,255,0.20); border-color: rgba(0,229,255,0.44); }
+.jcard-btn.listening { background: rgba(0,229,255,0.22); border-color: var(--cyan); animation: jc-mic-glow 1.4s ease-in-out infinite; }
+@keyframes jc-mic-glow {
+  0%,100% { box-shadow: 0 0 10px rgba(0,229,255,0.30); }
+  50%      { box-shadow: 0 0 22px rgba(0,229,255,0.60); }
+}
+.jcard-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── CALL PANE ── */
+#jcCallPane {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px 20px 28px; gap: 18px;
+}
+
+/* Canvas */
+#jcCanvas {
+  width: 100%; height: 120px; display: block;
+  border-radius: 12px; background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Call status */
+.jc-call-status {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.10em;
+  color: var(--text-3); text-align: center; transition: color 0.3s;
+}
+.jc-call-status.listening  { color: var(--cyan); }
+.jc-call-status.processing { color: var(--gold); }
+.jc-call-status.speaking   { color: var(--emerald); }
+
+/* Big mic button */
+#jcMicBtn {
+  width: 74px; height: 74px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #151527 0%, #09090f 100%);
+  border: 2px solid rgba(0,229,255,0.30); color: var(--cyan);
+  font-size: 26px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; transition: all 0.25s;
+  box-shadow: 0 0 18px rgba(0,229,255,0.18), 0 8px 24px rgba(0,0,0,0.55);
+  animation: jc-mic-breathe 3.5s ease-in-out infinite;
+}
+@keyframes jc-mic-breathe {
+  0%,100% { box-shadow: 0 0 16px rgba(0,229,255,0.18), 0 8px 24px rgba(0,0,0,0.5); }
+  50%      { box-shadow: 0 0 32px rgba(0,229,255,0.36), 0 8px 24px rgba(0,0,0,0.5); }
+}
+#jcMicBtn:hover { border-color: rgba(0,229,255,0.60); animation-play-state: paused; }
+#jcMicBtn.active { border-color: var(--cyan); animation: jc-mic-active 1.5s ease-in-out infinite; }
+@keyframes jc-mic-active {
+  0%,100% { box-shadow: 0 0 22px rgba(0,229,255,0.55), 0 0 50px rgba(0,229,255,0.18), 0 8px 24px rgba(0,0,0,0.6); }
+  50%      { box-shadow: 0 0 40px rgba(0,229,255,0.80), 0 0 90px rgba(0,229,255,0.30), 0 8px 24px rgba(0,0,0,0.6); }
+}
+#jcMicBtn.processing { border-color: rgba(242,192,99,0.55); animation: jc-mic-process 2s ease-in-out infinite; }
+@keyframes jc-mic-process {
+  0%,100% { box-shadow: 0 0 16px rgba(242,192,99,0.28), 0 8px 24px rgba(0,0,0,0.5); }
+  50%      { box-shadow: 0 0 30px rgba(242,192,99,0.50), 0 8px 24px rgba(0,0,0,0.5); }
+}
+
+/* Last reply display */
+.jc-last-reply {
+  width: 100%; padding: 12px 16px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px; font-size: 13px; color: var(--text-3); line-height: 1.7;
+  max-height: 100px; overflow-y: auto; display: none;
+}
+.jc-last-reply:not(:empty) { display: block; }
+
+/* ── MODULE GRID ── */
 .modules {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -65,67 +263,36 @@ body::after {
   border-radius: 20px;
   padding: 18px 16px 16px;
 }
-.card-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px;
-}
-.card-title {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
-  letter-spacing: 0.17em; color: var(--text-3); text-transform: uppercase;
-}
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-title  { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.17em; color: var(--text-3); text-transform: uppercase; }
 
-/* ── SETTER ────────────────────────────────────────────────────────────── */
-.setter-name { font-size: 20px; font-weight: 700; color: var(--gold); letter-spacing: -0.01em; margin-bottom: 12px; }
-.checklist { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
-.check-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 11px; background: rgba(255,255,255,0.02);
-  border: 1px solid var(--border); border-radius: 10px;
-  cursor: pointer; user-select: none; transition: all 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
+/* ── SETTER ── */
+.setter-name   { font-size: 20px; font-weight: 700; color: var(--gold); letter-spacing: -0.01em; margin-bottom: 12px; }
+.checklist     { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+.check-item    { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; user-select: none; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
 .check-item:hover { background: rgba(255,255,255,0.05); }
-.check-item.done { border-color: rgba(107,227,164,0.22); background: rgba(107,227,164,0.05); }
-.check-box {
-  width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
-  border: 1.5px solid var(--text-3);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; transition: all 0.15s;
-}
+.check-item.done  { border-color: rgba(107,227,164,0.22); background: rgba(107,227,164,0.05); }
+.check-box     { width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; border: 1.5px solid var(--text-3); display: flex; align-items: center; justify-content: center; font-size: 11px; transition: all 0.15s; }
 .check-item.done .check-box { border-color: var(--emerald); background: rgba(107,227,164,0.18); color: var(--emerald); }
-.check-label { font-size: 12px; color: var(--text-2); line-height: 1.3; }
+.check-label   { font-size: 12px; color: var(--text-2); line-height: 1.3; }
 .check-item.done .check-label { color: var(--text-3); text-decoration: line-through; }
-
 .setter-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
 .skpi-cell { background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: 10px; padding: 8px 5px; text-align: center; }
 .skpi-val  { font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: var(--gold); line-height: 1; display: block; margin-bottom: 1px; }
 .skpi-lbl  { font-size: 8.5px; color: var(--text-3); letter-spacing: 0.09em; text-transform: uppercase; display: block; margin-bottom: 5px; }
 .skpi-btns { display: flex; gap: 4px; justify-content: center; }
-.skpi-btn  {
-  width: 22px; height: 22px; border-radius: 5px;
-  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
-  color: var(--text-2); font-size: 15px; cursor: pointer; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
+.skpi-btn  { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-2); font-size: 15px; cursor: pointer; line-height: 1; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
 .skpi-btn:hover { background: rgba(255,255,255,0.09); color: var(--text-1); }
-
 .feedback-label { font-size: 9.5px; color: var(--text-3); letter-spacing: 0.09em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
-.feedback-input {
-  width: 100%; min-height: 58px;
-  background: rgba(0,0,0,0.22); border: 1px solid var(--border); border-radius: 10px;
-  color: var(--text-2); font-family: inherit; font-size: 12px;
-  padding: 9px 11px; outline: none; resize: none; transition: border-color 0.2s;
-}
+.feedback-input { width: 100%; min-height: 58px; background: rgba(0,0,0,0.22); border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); font-family: inherit; font-size: 12px; padding: 9px 11px; outline: none; resize: none; transition: border-color 0.2s; }
 .feedback-input:focus { border-color: rgba(242,192,99,0.32); }
 .feedback-input::placeholder { color: var(--text-3); }
 
-/* ── CASHFLOW ──────────────────────────────────────────────────────────── */
-.cf-net-lbl  { font-size: 9.5px; color: var(--text-3); letter-spacing: 0.13em; text-transform: uppercase; font-weight: 700; margin-bottom: 3px; }
-.cf-net-val  { font-size: 38px; font-weight: 800; font-family: var(--font-mono); letter-spacing: -0.025em; line-height: 1; margin-bottom: 16px; }
+/* ── CASHFLOW ── */
+.cf-net-lbl { font-size: 9.5px; color: var(--text-3); letter-spacing: 0.13em; text-transform: uppercase; font-weight: 700; margin-bottom: 3px; }
+.cf-net-val { font-size: 38px; font-weight: 800; font-family: var(--font-mono); letter-spacing: -0.025em; line-height: 1; margin-bottom: 16px; }
 .cf-net-val.pos { color: var(--emerald); }
 .cf-net-val.neg { color: var(--danger); }
-
 .cf-bars-row { display: flex; gap: 8px; margin-bottom: 14px; height: 70px; align-items: flex-end; }
 .cf-bar-col  { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
 .cf-bar-meta { display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-3); letter-spacing: 0.07em; margin-bottom: 4px; }
@@ -134,65 +301,39 @@ body::after {
 .cf-bar-fill  { width: 100%; border-radius: 6px; min-height: 3px; transition: height 0.55s cubic-bezier(.4,0,.2,1); }
 .cf-bar-fill.inc { background: linear-gradient(to top, var(--emerald), rgba(107,227,164,0.35)); }
 .cf-bar-fill.exp { background: linear-gradient(to top, var(--danger),  rgba(255,107,107,0.35)); }
-
 .cf-btns   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.btn-inflow, .btn-outflow {
-  width: 100%; padding: 13px 14px; border: none; border-radius: 12px;
-  font-family: inherit; font-size: 11px; font-weight: 800;
-  letter-spacing: 0.08em; cursor: pointer; transition: all 0.18s;
-  -webkit-tap-highlight-color: transparent;
-}
+.btn-inflow, .btn-outflow { width: 100%; padding: 13px 14px; border: none; border-radius: 12px; font-family: inherit; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; cursor: pointer; transition: all 0.18s; -webkit-tap-highlight-color: transparent; }
 .btn-inflow  { background: rgba(107,227,164,0.12); border: 1px solid rgba(107,227,164,0.28); color: var(--emerald); }
 .btn-inflow:hover  { background: rgba(107,227,164,0.22); }
-.btn-outflow { background: rgba(255,107,107,0.09);  border: 1px solid rgba(255,107,107,0.22); color: var(--danger); }
+.btn-outflow { background: rgba(255,107,107,0.09); border: 1px solid rgba(255,107,107,0.22); color: var(--danger); }
 .btn-outflow:hover { background: rgba(255,107,107,0.18); }
-
 .tx-list { display: flex; flex-direction: column; gap: 4px; }
-.tx-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 9px; border-radius: 8px; background: rgba(255,255,255,0.02);
-}
+.tx-item { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; background: rgba(255,255,255,0.02); }
 .tx-desc { flex: 1; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tx-date { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); flex-shrink: 0; }
 .tx-amt  { font-family: var(--font-mono); font-size: 12px; font-weight: 700; flex-shrink: 0; }
 .tx-amt.in  { color: var(--emerald); }
 .tx-amt.out { color: var(--danger); }
 
-/* ── KPIs ──────────────────────────────────────────────────────────────── */
+/* ── BUSINESS KPIs ── */
 .kpi-counters { display: flex; flex-direction: column; gap: 9px; margin-bottom: 14px; }
-.kpi-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: 11px; }
-.kpi-info { flex: 1; }
-.kpi-lbl  { font-size: 10px; color: var(--text-3); letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 1px; }
-.kpi-val  { font-size: 30px; font-weight: 700; font-family: var(--font-mono); line-height: 1.1; }
+.kpi-row   { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: 11px; }
+.kpi-info  { flex: 1; }
+.kpi-lbl   { font-size: 10px; color: var(--text-3); letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 1px; }
+.kpi-val   { font-size: 30px; font-weight: 700; font-family: var(--font-mono); line-height: 1.1; }
 .kpi-ctrls { display: flex; gap: 6px; }
-.kpi-ctrl {
-  width: 34px; height: 34px; border-radius: 9px;
-  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
-  color: var(--text-1); font-size: 20px; cursor: pointer; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
+.kpi-ctrl  { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-1); font-size: 20px; cursor: pointer; line-height: 1; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
 .kpi-ctrl:hover { background: rgba(255,255,255,0.10); }
-
 .streak-block { background: rgba(242,192,99,0.07); border: 1px solid rgba(242,192,99,0.18); border-radius: 14px; padding: 14px; text-align: center; margin-bottom: 10px; }
 .streak-num { font-size: 52px; font-weight: 800; font-family: var(--font-mono); color: var(--gold); line-height: 1; display: block; margin-bottom: 3px; }
 .streak-lbl { font-size: 10px; color: var(--text-3); letter-spacing: 0.13em; text-transform: uppercase; }
-.btn-post {
-  width: 100%; padding: 12px 14px; border: none; border-radius: 12px;
-  font-family: inherit; font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
-  cursor: pointer; transition: all 0.18s; -webkit-tap-highlight-color: transparent;
-  background: rgba(242,192,99,0.12); border: 1px solid rgba(242,192,99,0.28); color: var(--gold);
-}
+.btn-post   { width: 100%; padding: 12px 14px; border: none; border-radius: 12px; font-family: inherit; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; cursor: pointer; transition: all 0.18s; -webkit-tap-highlight-color: transparent; background: rgba(242,192,99,0.12); border: 1px solid rgba(242,192,99,0.28); color: var(--gold); }
 .btn-post:hover  { background: rgba(242,192,99,0.22); }
 .btn-post.posted { background: rgba(107,227,164,0.10); border-color: rgba(107,227,164,0.28); color: var(--emerald); }
 .last-post-note  { text-align: center; font-size: 10px; color: var(--text-3); margin-top: 6px; font-family: var(--font-mono); letter-spacing: 0.06em; }
 
-/* ── CASHFLOW MODAL ────────────────────────────────────────────────────── */
-.modal-bg {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.72); backdrop-filter: blur(10px);
-  z-index: 300; align-items: center; justify-content: center; padding: 20px;
-}
+/* ── MODAL ── */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(10px); z-index: 300; align-items: center; justify-content: center; padding: 20px; }
 .modal-bg.show { display: flex; }
 .modal { width: 100%; max-width: 370px; background: #111115; border: 1px solid var(--border-strong); border-radius: 20px; padding: 22px; }
 .modal-hd { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
@@ -208,300 +349,76 @@ body::after {
 .m-confirm.inflow  { background: var(--emerald); color: #050506; }
 .m-confirm.outflow { background: var(--danger);  color: #fff; }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   JARVIS FAB SYSTEM
-   ══════════════════════════════════════════════════════════════════════════ */
-
-/* Anchor: everything positions relative to this 64×64 fixed square */
-.jfab-wrap {
-  position: fixed;
-  bottom: max(24px, env(safe-area-inset-bottom, 24px));
-  right: 24px;
-  width: 64px;
-  height: 64px;
-  z-index: 900;
-}
-
-/* ── Ripple rings ────────────────────────────────────────────────────── */
-.jring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  opacity: 0;
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-.jring:nth-child(1) { border: 1.5px solid rgba(0,229,255,0.75); }
-.jring:nth-child(2) { border: 1.5px solid rgba(242,192,99,0.65); }
-.jring:nth-child(3) { border: 1.5px solid rgba(0,229,255,0.45); }
-.jring:nth-child(4) { border: 1.5px solid rgba(242,192,99,0.35); }
-
-@keyframes jripple {
-  0%   { transform: scale(1);   opacity: 0.95; }
-  70%  { opacity: 0.2; }
-  100% { transform: scale(4.5); opacity: 0; }
-}
-
-.jfab-wrap.listening .jring:nth-child(1) { animation: jripple 2.4s cubic-bezier(0,0.5,0.5,1) infinite 0.00s; }
-.jfab-wrap.listening .jring:nth-child(2) { animation: jripple 2.4s cubic-bezier(0,0.5,0.5,1) infinite 0.55s; }
-.jfab-wrap.listening .jring:nth-child(3) { animation: jripple 2.4s cubic-bezier(0,0.5,0.5,1) infinite 1.10s; }
-.jfab-wrap.listening .jring:nth-child(4) { animation: jripple 2.4s cubic-bezier(0,0.5,0.5,1) infinite 1.65s; }
-
-/* ── Response bubble ─────────────────────────────────────────────────── */
-.jbubble {
-  position: absolute;
-  bottom: calc(100% + 58px);  /* above the status pill */
-  right: 0;
-  width: min(300px, calc(100vw - 48px));
-  background: rgba(8,8,14,0.96);
-  border: 1px solid rgba(0,229,255,0.22);
-  border-radius: 18px 18px 4px 18px;
-  padding: 14px 16px 12px;
-  opacity: 0;
-  transform: translateY(10px) scale(0.96);
-  transition: opacity 0.32s ease, transform 0.32s ease;
-  pointer-events: none;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.08);
-}
-.jbubble.show {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-.jbubble-label {
-  display: block;
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
-  letter-spacing: 0.16em; color: var(--cyan); margin-bottom: 6px; text-transform: uppercase;
-}
-.jbubble-text {
-  font-size: 13px; line-height: 1.6; color: var(--text-2);
-}
-.jbubble-close {
-  position: absolute; top: 10px; right: 12px;
-  background: transparent; border: none; color: var(--text-3);
-  font-size: 18px; cursor: pointer; line-height: 1;
-  -webkit-tap-highlight-color: transparent;
-}
-.jbubble-close:hover { color: var(--text-1); }
-.jbubble-user {
-  margin-top: 8px; padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  font-size: 11px; color: var(--text-3); font-style: italic;
-}
-
-/* ── Thinking dots inside bubble ─────────────────────────────────────── */
-.jdots { display: flex; gap: 5px; align-items: center; padding: 2px 0; }
-.jdots span {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--cyan); opacity: 0.25;
-  animation: jdot 1.4s ease-in-out infinite;
-}
-.jdots span:nth-child(2) { animation-delay: 0.22s; }
-.jdots span:nth-child(3) { animation-delay: 0.44s; }
-@keyframes jdot {
-  0%,80%,100% { opacity: 0.18; transform: scale(0.8); }
-  40%          { opacity: 1;    transform: scale(1); }
-}
-
-/* ── Status pill ─────────────────────────────────────────────────────── */
-.jstatus {
-  position: absolute;
-  bottom: calc(100% + 12px);
-  right: 0;
-  display: flex; align-items: center; gap: 7px;
-  padding: 7px 13px 7px 10px;
-  background: rgba(5,5,8,0.92);
-  border: 1px solid rgba(0,229,255,0.22);
-  border-radius: 999px;
-  white-space: nowrap;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
-  pointer-events: none;
-}
-.jstatus.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-.jstatus-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--cyan);
-  animation: jpulse-dot 1.2s ease-in-out infinite;
-  flex-shrink: 0;
-}
-@keyframes jpulse-dot {
-  0%,100% { opacity: 0.5; transform: scale(0.85); }
-  50%      { opacity: 1;   transform: scale(1); }
-}
-.jstatus-text {
-  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-  letter-spacing: 0.07em; color: var(--cyan);
-}
-
-/* ── Inline text input (appears when active) ─────────────────────────── */
-.jinput-row {
-  position: absolute;
-  bottom: calc(100% + 52px);
-  right: 0;
-  display: flex; gap: 7px;
-  width: min(270px, calc(100vw - 48px));
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  pointer-events: none;
-}
-.jinput-row.show {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-.jinput {
-  flex: 1; background: rgba(5,5,10,0.92);
-  border: 1px solid rgba(0,229,255,0.22); border-radius: 10px;
-  color: var(--text-1); font-family: inherit; font-size: 13px;
-  padding: 9px 12px; outline: none; backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: border-color 0.2s;
-}
-.jinput:focus { border-color: rgba(0,229,255,0.5); }
-.jinput::placeholder { color: rgba(255,255,255,0.25); }
-.jsend {
-  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-  background: rgba(0,229,255,0.16); border: 1px solid rgba(0,229,255,0.3);
-  color: var(--cyan); font-size: 18px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent; transition: all 0.18s;
-}
-.jsend:hover { background: rgba(0,229,255,0.28); }
-.jsend:disabled { opacity: 0.3; cursor: not-allowed; }
-
-/* ── FAB button itself ───────────────────────────────────────────────── */
-.jfab-btn {
-  position: relative; z-index: 2;
-  width: 64px; height: 64px; border-radius: 50%;
-  border: 2px solid rgba(0,229,255,0.32);
-  background: radial-gradient(circle at 40% 35%, #141424 0%, #0a0a12 100%);
-  color: var(--cyan);
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.3s;
-  /* inner subtle gradient rim */
-  box-shadow:
-    inset 0 1px 0 rgba(0,229,255,0.18),
-    inset 0 -1px 0 rgba(0,0,0,0.4);
-  animation: jbreathe 3.5s ease-in-out infinite;
-}
-
-@keyframes jbreathe {
-  0%,100% {
-    box-shadow:
-      inset 0 1px 0 rgba(0,229,255,0.18),
-      inset 0 -1px 0 rgba(0,0,0,0.4),
-      0 0 14px rgba(0,229,255,0.22),
-      0 0 28px rgba(0,229,255,0.08),
-      0 0 6px  rgba(242,192,99,0.06),
-      0 8px 28px rgba(0,0,0,0.55);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(0,229,255,0.22),
-      inset 0 -1px 0 rgba(0,0,0,0.4),
-      0 0 26px rgba(0,229,255,0.38),
-      0 0 50px rgba(0,229,255,0.14),
-      0 0 18px rgba(242,192,99,0.10),
-      0 8px 28px rgba(0,0,0,0.55);
-  }
-}
-
-.jfab-btn:hover {
-  border-color: rgba(0,229,255,0.6);
-  animation-play-state: paused;
-  box-shadow:
-    inset 0 1px 0 rgba(0,229,255,0.25),
-    0 0 32px rgba(0,229,255,0.45),
-    0 0 64px rgba(0,229,255,0.15),
-    0 8px 28px rgba(0,0,0,0.55);
-}
-
-/* Listening state overrides the breathing */
-.jfab-wrap.listening .jfab-btn {
-  border-color: var(--cyan);
-  animation: jlistenglow 1.6s ease-in-out infinite;
-}
-
-@keyframes jlistenglow {
-  0%,100% {
-    box-shadow:
-      inset 0 1px 0 rgba(0,229,255,0.28),
-      0 0 22px rgba(0,229,255,0.55),
-      0 0 55px rgba(0,229,255,0.22),
-      0 0 12px rgba(242,192,99,0.12),
-      0 8px 28px rgba(0,0,0,0.6);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(0,229,255,0.35),
-      0 0 40px rgba(0,229,255,0.75),
-      0 0 90px rgba(0,229,255,0.32),
-      0 0 26px rgba(242,192,99,0.20),
-      0 8px 28px rgba(0,0,0,0.6);
-  }
-}
-
-/* Processing state (subtle, not as dramatic as listening) */
-.jfab-wrap.processing .jfab-btn {
-  border-color: rgba(242,192,99,0.5);
-  animation: jprocessglow 2s ease-in-out infinite;
-}
-@keyframes jprocessglow {
-  0%,100% {
-    box-shadow:
-      inset 0 1px 0 rgba(242,192,99,0.15),
-      0 0 16px rgba(242,192,99,0.28),
-      0 0 40px rgba(242,192,99,0.08),
-      0 8px 28px rgba(0,0,0,0.55);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(242,192,99,0.22),
-      0 0 28px rgba(242,192,99,0.44),
-      0 0 70px rgba(242,192,99,0.14),
-      0 8px 28px rgba(0,0,0,0.55);
-  }
-}
-
-/* Icon inside FAB */
-.jfab-icon { display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
-.jfab-icon.hidden { display: none; }
-
-/* Spinner (processing state) */
-.jspinner {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid rgba(242,192,99,0.2);
-  border-top-color: var(--gold);
-  animation: jspin 0.8s linear infinite;
-  display: none;
-}
-.jfab-wrap.processing .jspinner { display: block; }
-.jfab-wrap.processing .jfab-icon { display: none; }
-
-@keyframes jspin { to { transform: rotate(360deg); } }
-
-/* ── Responsive ──────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .page { padding: 0 12px 130px; }
   .cf-net-val { font-size: 30px; }
+  .jcard-hd { flex-wrap: wrap; gap: 10px; }
 }
 </style>
 </head>
 <body>
 <div class="page">
 
+  <!-- ══════════════════════════════════════════════════════════════════
+       JARVIS DUAL-INTERFACE CARD
+       ══════════════════════════════════════════════════════════════════ -->
+  <div class="jcard" id="jcard">
+    <div class="jcard-hd">
+      <span class="jcard-orb">◈</span>
+      <div class="jcard-brand">
+        <span class="jcard-name">JARVIS</span>
+        <span class="jcard-tagline">AI Command System</span>
+      </div>
+      <div class="jcard-status-dot" id="jcStatusDot"></div>
+      <div class="jcard-mode">
+        <button class="jcard-mode-btn active" id="jcChatBtn">💬 Chat</button>
+        <button class="jcard-mode-btn" id="jcCallBtn">📞 Call</button>
+      </div>
+    </div>
+
+    <!-- ── Chat Pane ── -->
+    <div id="jcChatPane">
+      <div class="jcard-convo" id="jcConvo">
+        <div class="jcard-empty" id="jcEmpty">
+          Ask Jarvis anything — updates stream live into your dashboard.<br>
+          <em style="opacity:0.55;font-size:11px;">"Mantilla did the alignment call, sent 40 DMs, booked 3 calls. I drank 2 bottles."</em>
+        </div>
+      </div>
+      <div class="jcard-input-row">
+        <input id="jcInput" type="text"
+               placeholder="Type a command or ask Jarvis anything…"
+               autocomplete="off" autocorrect="off">
+        <button class="jcard-btn" id="jcVoiceBtn" title="Voice input" aria-label="Voice input">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8"  y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <button class="jcard-btn" id="jcSendBtn" aria-label="Send">↑</button>
+      </div>
+    </div>
+
+    <!-- ── Call / Voice Pane ── -->
+    <div id="jcCallPane" style="display:none">
+      <canvas id="jcCanvas"></canvas>
+      <div class="jc-call-status" id="jcCallStatus">Tap the mic to start</div>
+      <button id="jcMicBtn" aria-label="Speak to Jarvis">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8"  y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <div class="jc-last-reply" id="jcLastReply"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       MODULE CARDS
+       ══════════════════════════════════════════════════════════════════ -->
   <div class="modules">
 
     <!-- SETTER TRACKER -->
@@ -561,57 +478,7 @@ body::after {
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════════
-     JARVIS FLOATING ACTION BUTTON
-     Fixed bottom-right — all states controlled via CSS classes
-     ══════════════════════════════════════════════════════════════ -->
-<div class="jfab-wrap" id="jfabWrap">
-
-  <!-- Ripple rings (animated by .listening class) -->
-  <div class="jring"></div>
-  <div class="jring"></div>
-  <div class="jring"></div>
-  <div class="jring"></div>
-
-  <!-- Jarvis response bubble -->
-  <div class="jbubble" id="jBubble">
-    <span class="jbubble-label">◈ JARVIS</span>
-    <div class="jbubble-text" id="jBubbleText"></div>
-    <button class="jbubble-close" id="jBubbleClose" aria-label="Dismiss">×</button>
-  </div>
-
-  <!-- Status pill (Listening / Thinking) -->
-  <div class="jstatus" id="jStatus">
-    <div class="jstatus-dot"></div>
-    <span class="jstatus-text" id="jStatusText">Jarvis is listening…</span>
-  </div>
-
-  <!-- Inline text input (slide-up when active) -->
-  <div class="jinput-row" id="jInputRow">
-    <input class="jinput" id="jInput" type="text"
-           placeholder="or type a command…" autocomplete="off" autocorrect="off">
-    <button class="jsend" id="jSend" aria-label="Send">↑</button>
-  </div>
-
-  <!-- The FAB button -->
-  <button class="jfab-btn" id="jFabBtn" aria-label="Activate Jarvis">
-    <span class="jfab-icon" id="jMicIcon">
-      <!-- Microphone SVG -->
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-        <line x1="12" y1="19" x2="12" y2="23"/>
-        <line x1="8"  y1="23" x2="16" y2="23"/>
-      </svg>
-    </span>
-    <div class="jspinner"></div>
-  </button>
-
-</div>
-
-<!-- Cashflow Quick-Input Modal -->
+<!-- Cashflow Modal -->
 <div class="modal-bg" id="cfModal">
   <div class="modal">
     <div class="modal-hd" id="cfModalHd">+ Mentorship Payment</div>
@@ -634,12 +501,11 @@ body::after {
 (function () {
 'use strict';
 
-// ── CONFIG ─────────────────────────────────────────────────────────────────
-// Fill in your Gemini API key — get one free at aistudio.google.com/apikey
-const GEMINI_KEY   = '';
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+// Fill in your Gemini API key — aistudio.google.com/apikey
+const GEMINI_KEY   = window.JARVIS_KEY || '';
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
-// ── STORAGE KEYS ───────────────────────────────────────────────────────────
 const K_SETTER = 'jarvis_setter';
 const K_CF     = 'jarvis_cf';
 const K_KPIS   = 'jarvis_kpis';
@@ -649,17 +515,11 @@ const $ = id => document.getElementById(id);
 
 function todayStr() {
   const d = new Date();
-  return d.getFullYear() + '-'
-    + String(d.getMonth() + 1).padStart(2, '0') + '-'
-    + String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function fmtMoney(n) {
-  return '$' + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
+function fmtMoney(n) { return '$' + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
 
-// ══════════════════════════════════════════════════════════════════════════
-// SETTER TRACKER
-// ══════════════════════════════════════════════════════════════════════════
+// ─── SETTER ───────────────────────────────────────────────────────────────────
 const CHECKLIST = [
   { key: 'alignment_call', label: 'Daily Alignment Call' },
   { key: 'lead_list',      label: 'Lead List Audited' },
@@ -673,10 +533,7 @@ const SETTER_KPIS = [
 ];
 
 function loadSetter() {
-  try {
-    const s = JSON.parse(localStorage.getItem(K_SETTER) || 'null');
-    if (s && s.date === todayStr()) return s;
-  } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem(K_SETTER) || 'null'); if (s && s.date === todayStr()) return s; } catch (e) {}
   return { date: todayStr(), checklist: {}, feedback: '', kpis: { dms: 0, replies: 0, calls: 0 } };
 }
 function saveSetter() { localStorage.setItem(K_SETTER, JSON.stringify(setter)); }
@@ -686,91 +543,55 @@ function renderSetter() {
   $('setterChecklist').innerHTML = CHECKLIST.map(({ key, label }) => {
     const done = !!setter.checklist[key];
     return `<div class="check-item${done ? ' done' : ''}" data-key="${key}">
-      <div class="check-box">${done ? '✓' : ''}</div>
-      <span class="check-label">${label}</span>
+      <div class="check-box">${done ? '✓' : ''}</div><span class="check-label">${label}</span>
     </div>`;
   }).join('');
   $('setterChecklist').querySelectorAll('.check-item').forEach(el => {
-    el.addEventListener('click', () => {
-      setter.checklist[el.dataset.key] = !setter.checklist[el.dataset.key];
-      saveSetter(); renderSetter();
-    });
+    el.addEventListener('click', () => { setter.checklist[el.dataset.key] = !setter.checklist[el.dataset.key]; saveSetter(); renderSetter(); });
   });
   $('setterKpis').innerHTML = SETTER_KPIS.map(({ key, label }) => {
     const v = setter.kpis[key] || 0;
     return `<div class="skpi-cell">
-      <span class="skpi-val">${v}</span>
-      <span class="skpi-lbl">${label}</span>
-      <div class="skpi-btns">
-        <button class="skpi-btn" data-k="${key}" data-d="-1">−</button>
-        <button class="skpi-btn" data-k="${key}" data-d="1">+</button>
-      </div>
+      <span class="skpi-val">${v}</span><span class="skpi-lbl">${label}</span>
+      <div class="skpi-btns"><button class="skpi-btn" data-k="${key}" data-d="-1">−</button><button class="skpi-btn" data-k="${key}" data-d="1">+</button></div>
     </div>`;
   }).join('');
   $('setterKpis').querySelectorAll('.skpi-btn').forEach(b => {
-    b.addEventListener('click', () => {
-      setter.kpis[b.dataset.k] = Math.max(0, (setter.kpis[b.dataset.k] || 0) + parseInt(b.dataset.d));
-      saveSetter(); renderSetter();
-    });
+    b.addEventListener('click', () => { setter.kpis[b.dataset.k] = Math.max(0, (setter.kpis[b.dataset.k] || 0) + parseInt(b.dataset.d)); saveSetter(); renderSetter(); });
   });
   $('setterFeedback').value = setter.feedback || '';
 }
 $('setterFeedback').addEventListener('input', e => { setter.feedback = e.target.value; saveSetter(); });
 
-// ══════════════════════════════════════════════════════════════════════════
-// CASHFLOW
-// ══════════════════════════════════════════════════════════════════════════
-function loadCF() {
-  try { return JSON.parse(localStorage.getItem(K_CF) || 'null') || { transactions: [] }; }
-  catch (e) { return { transactions: [] }; }
-}
+// ─── CASHFLOW ─────────────────────────────────────────────────────────────────
+function loadCF() { try { return JSON.parse(localStorage.getItem(K_CF) || 'null') || { transactions: [] }; } catch (e) { return { transactions: [] }; } }
 function saveCF() { localStorage.setItem(K_CF, JSON.stringify(cf)); }
-let cf = loadCF();
-let cfMode = 'in';
+let cf = loadCF(), cfMode = 'in';
 
-function monthTxs() {
-  const prefix = todayStr().slice(0, 7);
-  return cf.transactions.filter(t => t.date.startsWith(prefix));
-}
+function monthTxs() { const p = todayStr().slice(0, 7); return cf.transactions.filter(t => t.date.startsWith(p)); }
 function renderCF() {
   const txs = monthTxs();
   const inc  = txs.filter(t => t.type === 'in').reduce((s, t) => s + t.amount, 0);
   const exp  = txs.filter(t => t.type === 'out').reduce((s, t) => s + t.amount, 0);
-  const net  = inc - exp;
-  const maxV = Math.max(inc, exp, 1);
-
+  const net  = inc - exp; const maxV = Math.max(inc, exp, 1);
   const el = $('cfNetVal');
   el.textContent = (net >= 0 ? '+' : '-') + fmtMoney(net);
   el.className = 'cf-net-val ' + (net >= 0 ? 'pos' : 'neg');
-
-  $('cfIncAmt').textContent = fmtMoney(inc);
-  $('cfExpAmt').textContent = fmtMoney(exp);
-  $('cfIncBar').style.height = (inc / maxV * 96) + '%';
-  $('cfExpBar').style.height = (exp / maxV * 96) + '%';
-
+  $('cfIncAmt').textContent = fmtMoney(inc); $('cfExpAmt').textContent = fmtMoney(exp);
+  $('cfIncBar').style.height = (inc / maxV * 96) + '%'; $('cfExpBar').style.height = (exp / maxV * 96) + '%';
   const recent = cf.transactions.slice(-6).reverse();
   $('txList').innerHTML = recent.length
-    ? recent.map(t => `<div class="tx-item">
-        <span class="tx-desc">${t.desc || (t.type === 'in' ? 'Payment' : 'Expense')}</span>
-        <span class="tx-date">${t.date.slice(5)}</span>
-        <span class="tx-amt ${t.type}">${t.type === 'in' ? '+' : '-'}${fmtMoney(t.amount)}</span>
-      </div>`).join('')
+    ? recent.map(t => `<div class="tx-item"><span class="tx-desc">${t.desc || (t.type === 'in' ? 'Payment' : 'Expense')}</span><span class="tx-date">${t.date.slice(5)}</span><span class="tx-amt ${t.type}">${t.type === 'in' ? '+' : '-'}${fmtMoney(t.amount)}</span></div>`).join('')
     : '<div style="text-align:center;font-size:11px;color:var(--text-3);padding:8px 0">No transactions this month</div>';
 }
-function addTx(type, amount, desc) {
-  cf.transactions.push({ id: Date.now(), type, amount, desc, date: todayStr() });
-  saveCF(); renderCF();
-}
-
+function addTx(type, amount, desc) { cf.transactions.push({ id: Date.now(), type, amount, desc, date: todayStr() }); saveCF(); renderCF(); }
 function openCFModal(mode) {
-  cfMode = mode;
-  const isIn = mode === 'in';
+  cfMode = mode; const isIn = mode === 'in';
   $('cfModalHd').textContent = isIn ? '+ Mentorship Payment' : '− Setter Expense';
   $('cfModalHd').className   = 'modal-hd ' + (isIn ? 'inflow' : 'outflow');
   $('cfConfirm').className   = 'm-confirm ' + (isIn ? 'inflow' : 'outflow');
   $('cfDesc').placeholder    = isIn ? 'e.g. John — 3-month program' : 'e.g. Mantilla monthly retainer';
-  $('cfAmt').value = ''; $('cfDesc').value = '';
-  $('cfModal').classList.add('show');
+  $('cfAmt').value = ''; $('cfDesc').value = ''; $('cfModal').classList.add('show');
   setTimeout(() => $('cfAmt').focus(), 50);
 }
 $('btnInflow').addEventListener('click',  () => openCFModal('in'));
@@ -778,228 +599,90 @@ $('btnOutflow').addEventListener('click', () => openCFModal('out'));
 $('cfCancel').addEventListener('click',   () => $('cfModal').classList.remove('show'));
 $('cfModal').addEventListener('click', e => { if (e.target === $('cfModal')) $('cfModal').classList.remove('show'); });
 $('cfConfirm').addEventListener('click', () => {
-  const amt = parseFloat($('cfAmt').value);
-  if (!amt || amt <= 0) { $('cfAmt').focus(); return; }
+  const amt = parseFloat($('cfAmt').value); if (!amt || amt <= 0) { $('cfAmt').focus(); return; }
   addTx(cfMode, amt, $('cfDesc').value.trim() || (cfMode === 'in' ? 'Mentorship payment' : 'Setter expense'));
   $('cfModal').classList.remove('show');
 });
-[$('cfAmt'), $('cfDesc')].forEach(el => {
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') $('cfConfirm').click(); });
-});
+[$('cfAmt'), $('cfDesc')].forEach(el => { el.addEventListener('keydown', e => { if (e.key === 'Enter') $('cfConfirm').click(); }); });
 
-// ══════════════════════════════════════════════════════════════════════════
-// BUSINESS KPIs
-// ══════════════════════════════════════════════════════════════════════════
+// ─── BUSINESS KPIs ────────────────────────────────────────────────────────────
 const KPI_DEFS = [
   { key: 'dms',   label: 'Outreach DMs',   color: 'var(--cyan)' },
   { key: 'calls', label: 'Calls Realized', color: 'var(--emerald)' },
 ];
-
 function loadKPIs() {
-  try {
-    const k = JSON.parse(localStorage.getItem(K_KPIS) || 'null');
-    if (k) {
-      if (k.date === todayStr()) return k;
-      return { date: todayStr(), dms: 0, calls: 0, streak: k.streak || 0, lastPostDate: k.lastPostDate || '' };
-    }
-  } catch (e) {}
+  try { const k = JSON.parse(localStorage.getItem(K_KPIS) || 'null'); if (k) { return k.date === todayStr() ? k : { date: todayStr(), dms: 0, calls: 0, streak: k.streak || 0, lastPostDate: k.lastPostDate || '' }; } } catch (e) {}
   return { date: todayStr(), dms: 0, calls: 0, streak: 0, lastPostDate: '' };
 }
 function saveKPIs() { localStorage.setItem(K_KPIS, JSON.stringify(kpis)); }
 let kpis = loadKPIs();
-
 function renderKPIs() {
   $('kpiCounters').innerHTML = KPI_DEFS.map(({ key, label, color }) => {
     const v = kpis[key] || 0;
-    return `<div class="kpi-row">
-      <div class="kpi-info">
-        <div class="kpi-lbl">${label}</div>
-        <div class="kpi-val" style="color:${color}">${v}</div>
-      </div>
-      <div class="kpi-ctrls">
-        <button class="kpi-ctrl" data-k="${key}" data-d="-1">−</button>
-        <button class="kpi-ctrl" data-k="${key}" data-d="1">+</button>
-      </div>
-    </div>`;
+    return `<div class="kpi-row"><div class="kpi-info"><div class="kpi-lbl">${label}</div><div class="kpi-val" style="color:${color}">${v}</div></div><div class="kpi-ctrls"><button class="kpi-ctrl" data-k="${key}" data-d="-1">−</button><button class="kpi-ctrl" data-k="${key}" data-d="1">+</button></div></div>`;
   }).join('');
   $('kpiCounters').querySelectorAll('.kpi-ctrl').forEach(b => {
-    b.addEventListener('click', () => {
-      kpis[b.dataset.k] = Math.max(0, (kpis[b.dataset.k] || 0) + parseInt(b.dataset.d));
-      saveKPIs(); renderKPIs();
-    });
+    b.addEventListener('click', () => { kpis[b.dataset.k] = Math.max(0, (kpis[b.dataset.k] || 0) + parseInt(b.dataset.d)); saveKPIs(); renderKPIs(); });
   });
   $('streakNum').textContent = kpis.streak || 0;
   const posted = kpis.lastPostDate === todayStr();
-  const btn = $('btnPost');
-  btn.textContent = posted ? '✓ POSTED TODAY' : '+ POST TODAY';
-  btn.className   = 'btn-post' + (posted ? ' posted' : '');
+  $('btnPost').textContent = posted ? '✓ POSTED TODAY' : '+ POST TODAY';
+  $('btnPost').className   = 'btn-post' + (posted ? ' posted' : '');
   $('lastPostNote').textContent = kpis.lastPostDate ? 'Last post: ' + kpis.lastPostDate : 'No posts logged yet';
 }
 $('btnPost').addEventListener('click', () => {
   if (kpis.lastPostDate === todayStr()) return;
-  const today = todayStr();
-  const prev  = new Date(); prev.setDate(prev.getDate() - 1);
-  const yStr  = prev.getFullYear() + '-' + String(prev.getMonth() + 1).padStart(2, '0') + '-' + String(prev.getDate()).padStart(2, '0');
+  const prev = new Date(); prev.setDate(prev.getDate() - 1);
+  const yStr = prev.getFullYear() + '-' + String(prev.getMonth() + 1).padStart(2, '0') + '-' + String(prev.getDate()).padStart(2, '0');
   kpis.streak = (kpis.lastPostDate === yStr) ? (kpis.streak || 0) + 1 : 1;
-  kpis.lastPostDate = today;
-  saveKPIs(); renderKPIs();
+  kpis.lastPostDate = todayStr(); saveKPIs(); renderKPIs();
 });
 
-// ══════════════════════════════════════════════════════════════════════════
-// FAB STATE MACHINE
-// States: idle | listening | processing
-// ══════════════════════════════════════════════════════════════════════════
-const wrap      = $('jfabWrap');
-const status    = $('jStatus');
-const statusTxt = $('jStatusText');
-const inputRow  = $('jInputRow');
-const bubble    = $('jBubble');
-const bubbleTxt = $('jBubbleText');
-
-let fabState     = 'idle';
-let bubbleTimer  = null;
-
-function setState(s) {
-  fabState = s;
-  wrap.className = 'jfab-wrap ' + s;
-
-  const isActive = s === 'listening' || s === 'processing';
-  status.classList.toggle('show', isActive);
-  inputRow.classList.toggle('show', s === 'listening');
-
-  if (s === 'listening') {
-    statusTxt.textContent = 'Jarvis is listening…';
-    status.style.borderColor = 'rgba(0,229,255,0.22)';
-    $('jStatusText').style.color = 'var(--cyan)';
-    $('jfabWrap').querySelector('.jstatus-dot').style.background = 'var(--cyan)';
-  } else if (s === 'processing') {
-    statusTxt.textContent = 'Thinking…';
-    status.style.borderColor = 'rgba(242,192,99,0.22)';
-    $('jStatusText').style.color = 'var(--gold)';
-    $('jfabWrap').querySelector('.jstatus-dot').style.background = 'var(--gold)';
-  }
-}
-
-function showBubble(html, userText) {
-  if (bubbleTimer) clearTimeout(bubbleTimer);
-  bubbleTxt.innerHTML = html + (userText ? `<div class="jbubble-user">"${userText}"</div>` : '');
-  bubble.classList.add('show');
-  // auto-dismiss after 12 seconds
-  bubbleTimer = setTimeout(() => hideBubble(), 12000);
-}
-
-function hideBubble() {
-  bubble.classList.remove('show');
-  if (bubbleTimer) { clearTimeout(bubbleTimer); bubbleTimer = null; }
-}
-
-function showThinking() {
-  if (bubbleTimer) clearTimeout(bubbleTimer);
-  bubbleTxt.innerHTML = '<div class="jdots"><span></span><span></span><span></span></div>';
-  bubble.classList.add('show');
-}
-
-$('jBubbleClose').addEventListener('click', hideBubble);
-
-// ══════════════════════════════════════════════════════════════════════════
-// JARVIS AI — GEMINI FUNCTION CALLING
-// ══════════════════════════════════════════════════════════════════════════
+// ─── JARVIS AI (Gemini + Function Calling) ────────────────────────────────────
 const SYSTEM_PROMPT = `You are JARVIS — the personal AI command system for Nicolas.
 
 Nicolas is a men's transformational coach (over-40 niche), entrepreneur, high-performer. His setter is Mantilla: handles outreach DMs, lead list auditing, script reviews, and call booking.
 
-PERSONALITY: Precision instrument. Sharp, direct, brief. Results language only. No filler. No hollow affirmations.
+PERSONALITY: Elite performance coach meets precision AI. Direct, sharp, brief. Results language only. No hollow affirmations. Speak with authority.
 
-FUNCTION PROTOCOL: Extract all data points from natural speech and call the appropriate functions simultaneously. After executing, deliver a 2-4 line debrief:
-Line 1 — What was logged (facts, numbers only)
+COACHING STYLE: Deliver elite-level coaching. Be provocative and direct. Ask powerful questions. Hold Nicolas accountable.
+
+FUNCTION PROTOCOL: Extract ALL data points from natural speech and call appropriate functions simultaneously. After executing, deliver a 2-4 line debrief:
+Line 1 — What was logged (facts, numbers)
 Line 2 — Current status snapshot
-Line 3 — One sharp next action or flag
+Line 3 — One sharp next action or accountability challenge
 
 TONE EXAMPLES:
-✓ "2L in. 67% to target. Hit the third before your next session."
-✗ "Great job staying hydrated! Hydration is so important for performance!"
-
-You are JARVIS. Respond accordingly.`;
+✓ "2L in. You're at 67%. Third bottle before your next session — non-negotiable."
+✗ "Great job staying hydrated! That's so important for your performance!"`;
 
 const TOOLS = [{
   functionDeclarations: [
-    {
-      name: 'log_water',
-      description: 'Log water consumed. Call when user mentions drinking water, bottles, or liters.',
-      parameters: {
-        type: 'OBJECT',
-        properties: { liters: { type: 'NUMBER', description: 'Liters consumed (e.g. 2 for two 1L bottles)' } },
-        required: ['liters']
-      }
-    },
-    {
-      name: 'log_setter',
-      description: 'Log Mantilla activity. Call for any mention of Mantilla, alignment calls, scripts, lead list, setter outreach.',
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          alignment_call: { type: 'BOOLEAN' },
-          lead_list:      { type: 'BOOLEAN' },
-          scripts:        { type: 'BOOLEAN' },
-          outreach_sent:  { type: 'BOOLEAN' },
-          dms:            { type: 'NUMBER' },
-          replies:        { type: 'NUMBER' },
-          calls:          { type: 'NUMBER' },
-          feedback:       { type: 'STRING' }
-        }
-      }
-    },
-    {
-      name: 'log_cashflow',
-      description: 'Log a financial transaction. Call for payments received, client deals, or expenses.',
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          type:   { type: 'STRING', enum: ['in', 'out'] },
-          amount: { type: 'NUMBER' },
-          desc:   { type: 'STRING' }
-        },
-        required: ['type', 'amount']
-      }
-    },
-    {
-      name: 'log_outreach',
-      description: 'Log personal outreach by Nicolas. Call when Nicolas mentions DMs he sent or calls he completed.',
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          dms:   { type: 'NUMBER' },
-          calls: { type: 'NUMBER' }
-        }
-      }
-    },
-    {
-      name: 'log_content',
-      description: 'Log a content post. Call when user says they posted a video, carousel, reel, or any content today.',
-      parameters: {
-        type: 'OBJECT',
-        properties: { type: { type: 'STRING' } }
-      }
-    }
+    { name: 'log_water',    description: 'Log water consumed. Call when user mentions drinking water, bottles, or liters.',
+      parameters: { type: 'OBJECT', properties: { liters: { type: 'NUMBER' } }, required: ['liters'] } },
+    { name: 'log_setter',   description: 'Log Mantilla setter activity — alignment calls, DMs, scripts, lead lists.',
+      parameters: { type: 'OBJECT', properties: { alignment_call: { type: 'BOOLEAN' }, lead_list: { type: 'BOOLEAN' }, scripts: { type: 'BOOLEAN' }, outreach_sent: { type: 'BOOLEAN' }, dms: { type: 'NUMBER' }, replies: { type: 'NUMBER' }, calls: { type: 'NUMBER' }, feedback: { type: 'STRING' } } } },
+    { name: 'log_cashflow', description: 'Log a business income or expense transaction.',
+      parameters: { type: 'OBJECT', properties: { type: { type: 'STRING', enum: ['in','out'] }, amount: { type: 'NUMBER' }, desc: { type: 'STRING' } }, required: ['type','amount'] } },
+    { name: 'log_outreach', description: 'Log personal DM outreach or calls by Nicolas himself.',
+      parameters: { type: 'OBJECT', properties: { dms: { type: 'NUMBER' }, calls: { type: 'NUMBER' } } } },
+    { name: 'log_content',  description: 'Log a content post and update streak.',
+      parameters: { type: 'OBJECT', properties: { type: { type: 'STRING' } } } }
   ]
 }];
 
-let conversation = [];
-let isProcessing = false;
-let lastUserText = '';
+let conversation  = [];
+let isProcessing  = false;
 
-// Execute a function call locally, update state
 function runFn(name, args) {
   let result = 'OK';
   try {
     if (name === 'log_water') {
       const liters = parseFloat(args.liters) || 0;
       if (liters > 0) {
-        let ws = {};
-        try { ws = JSON.parse(localStorage.getItem(K_WATER) || '{}'); } catch (e) {}
-        if (!ws.logs) ws.logs = {};
-        const bottleMl = ws.bottleMl || 1000;
-        const units = Math.max(1, Math.round((liters * 1000) / bottleMl));
+        let ws = {}; try { ws = JSON.parse(localStorage.getItem(K_WATER) || '{}'); } catch (e) {}
+        ws.logs = ws.logs || {};
+        const units = Math.max(1, Math.round((liters * 1000) / (ws.bottleMl || 1000)));
         ws.logs[todayStr()] = (ws.logs[todayStr()] || 0) + units;
         localStorage.setItem(K_WATER, JSON.stringify(ws));
         result = `Logged ${liters}L.`;
@@ -1013,182 +696,361 @@ function runFn(name, args) {
       if (args.replies) setter.kpis.replies = (setter.kpis.replies  || 0) + parseInt(args.replies);
       if (args.calls)   setter.kpis.calls   = (setter.kpis.calls    || 0) + parseInt(args.calls);
       if (args.feedback) setter.feedback = args.feedback;
-      saveSetter(); renderSetter();
-      result = 'Setter updated.';
+      saveSetter(); renderSetter(); result = 'Setter updated.';
     } else if (name === 'log_cashflow') {
       const amt = parseFloat(args.amount);
       if (amt > 0) { addTx(args.type, amt, args.desc || ''); result = `$${amt.toLocaleString()} ${args.type === 'in' ? 'income' : 'expense'} logged.`; }
     } else if (name === 'log_outreach') {
       if (args.dms)   kpis.dms   = (kpis.dms   || 0) + parseInt(args.dms);
       if (args.calls) kpis.calls = (kpis.calls  || 0) + parseInt(args.calls);
-      saveKPIs(); renderKPIs();
-      result = 'KPIs updated.';
+      saveKPIs(); renderKPIs(); result = 'KPIs updated.';
     } else if (name === 'log_content') {
       if (kpis.lastPostDate !== todayStr()) {
-        const today = todayStr();
-        const prev  = new Date(); prev.setDate(prev.getDate() - 1);
-        const yStr  = prev.getFullYear() + '-' + String(prev.getMonth() + 1).padStart(2, '0') + '-' + String(prev.getDate()).padStart(2, '0');
+        const prev = new Date(); prev.setDate(prev.getDate() - 1);
+        const yStr = prev.getFullYear() + '-' + String(prev.getMonth() + 1).padStart(2, '0') + '-' + String(prev.getDate()).padStart(2, '0');
         kpis.streak = (kpis.lastPostDate === yStr) ? (kpis.streak || 0) + 1 : 1;
-        kpis.lastPostDate = today;
-        saveKPIs(); renderKPIs();
+        kpis.lastPostDate = todayStr(); saveKPIs(); renderKPIs();
         result = `Content posted. Streak: ${kpis.streak} days.`;
       } else { result = 'Post already logged today.'; }
     }
+    window.dispatchEvent(new CustomEvent('jarvis-data-update', { detail: { fn: name, args, result } }));
   } catch (e) { result = 'Error: ' + e.message; }
   return result;
-}
-
-async function sendToJarvis(text) {
-  text = text.trim();
-  if (!text || isProcessing) return;
-
-  if (!GEMINI_KEY) {
-    showBubble('Add your <strong>Gemini API key</strong> to <code>GEMINI_KEY</code> in jarvis.html to enable AI.<br><br>Get one free at aistudio.google.com/apikey');
-    setState('idle');
-    return;
-  }
-
-  isProcessing = true;
-  lastUserText = text;
-  setState('processing');
-  showThinking();
-  $('jSend').disabled = true;
-
-  conversation.push({ role: 'user', parts: [{ text }] });
-
-  try {
-    let resp = await callGemini();
-
-    for (let i = 0; i < 6; i++) {
-      const parts   = resp.candidates?.[0]?.content?.parts || [];
-      const fnCalls = parts.filter(p => p.functionCall);
-      const txtParts= parts.filter(p => p.text);
-
-      if (!fnCalls.length) {
-        const finalText = txtParts.map(p => p.text).join('');
-        showBubble(finalText.replace(/\n/g, '<br>'), lastUserText);
-        conversation.push({ role: 'model', parts });
-        break;
-      }
-
-      conversation.push({ role: 'model', parts });
-      const fnResps = fnCalls.map(p => ({
-        functionResponse: {
-          name: p.functionCall.name,
-          response: { result: runFn(p.functionCall.name, p.functionCall.args || {}) }
-        }
-      }));
-      conversation.push({ role: 'user', parts: fnResps });
-      resp = await callGemini();
-    }
-  } catch (err) {
-    showBubble('⚠ ' + (err.message || 'Could not reach Gemini. Check your key and network.'));
-  }
-
-  isProcessing = false;
-  $('jSend').disabled = false;
-  setState('idle');
 }
 
 async function callGemini() {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        tools: TOOLS,
-        tool_config: { function_calling_config: { mode: 'AUTO' } },
+        tools: TOOLS, tool_config: { function_calling_config: { mode: 'AUTO' } },
         contents: conversation,
         generation_config: { temperature: 0.65, max_output_tokens: 512 }
       })
     }
   );
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.error?.message || `HTTP ${res.status}`);
-  }
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || `HTTP ${res.status}`); }
   return res.json();
 }
 
-// ── TEXT INPUT WIRING ─────────────────────────────────────────────────────
-$('jSend').addEventListener('click', () => {
-  const inp = $('jInput');
-  const txt = inp.value.trim();
-  inp.value = '';
-  if (txt) sendToJarvis(txt);
-});
-$('jInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('jSend').click(); }
-});
+async function sendToJarvis(text) {
+  text = (text || '').trim();
+  if (!text || isProcessing) return;
 
-// ── VOICE INPUT (Web Speech API) ──────────────────────────────────────────
-// hookVoice() is modular — call it to wire up recognition to the FAB
-function hookVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return null;
-
-  const rec = new SR();
-  rec.continuous      = false;
-  rec.interimResults  = true;
-  rec.lang            = 'en-US';
-
-  rec.onresult = e => {
-    let transcript = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      transcript += e.results[i][0].transcript;
-    }
-    $('jInput').value = transcript;
-    if (e.results[e.results.length - 1].isFinal) {
-      rec.stop();
-      sendToJarvis(transcript);
-      $('jInput').value = '';
-    }
-  };
-  rec.onerror = () => { rec.stop(); setState('idle'); };
-  rec.onend   = () => {
-    if (fabState === 'listening') setState('idle');
-  };
-  return rec;
-}
-
-const recognition = hookVoice();
-let voiceActive = false;
-
-$('jFabBtn').addEventListener('click', () => {
-  if (fabState === 'processing') return; // ignore taps while processing
-
-  if (fabState === 'listening') {
-    // Stop listening
-    voiceActive = false;
-    if (recognition) recognition.stop();
-    setState('idle');
+  const key = GEMINI_KEY || window.JARVIS_KEY || '';
+  if (!key) {
+    appendMsg('jarvis', 'Set <strong>GEMINI_KEY</strong> in jarvis.html or jarvis-fab.js to activate AI.<br>Get one free at aistudio.google.com/apikey');
     return;
   }
 
-  // Go to listening state
-  setState('listening');
+  isProcessing = true;
+  setCardState('processing');
+  appendMsg('user', text);
+  conversation.push({ role: 'user', parts: [{ text }] });
+  appendThinking();
 
-  if (recognition) {
-    voiceActive = true;
-    try { recognition.start(); } catch (e) {}
+  try {
+    let resp = await callGemini();
+    removeThinking();
+    for (let i = 0; i < 6; i++) {
+      const parts   = resp.candidates?.[0]?.content?.parts || [];
+      const fnCalls = parts.filter(p => p.functionCall);
+      const txtPts  = parts.filter(p => p.text);
+      if (!fnCalls.length) {
+        const finalTxt = txtPts.map(p => p.text).join('');
+        if (finalTxt) {
+          appendMsg('jarvis', finalTxt);
+          // Mirror to call pane last-reply
+          $('jcLastReply').textContent = finalTxt;
+          // Speak if in call mode
+          if (currentMode === 'call') speakJarvis(finalTxt);
+        }
+        conversation.push({ role: 'model', parts }); break;
+      }
+      conversation.push({ role: 'model', parts });
+      const fnResps = fnCalls.map(p => ({ functionResponse: { name: p.functionCall.name, response: { result: runFn(p.functionCall.name, p.functionCall.args || {}) } } }));
+      conversation.push({ role: 'user', parts: fnResps });
+      if (i < 5) { appendThinking(); resp = await callGemini(); removeThinking(); }
+    }
+  } catch (err) {
+    removeThinking();
+    appendMsg('jarvis', '⚠ ' + (err.message || 'Could not reach Gemini. Check your key and network.'));
+  }
+
+  isProcessing = false;
+  setCardState(currentMode === 'call' ? 'call-idle' : 'chat');
+  $('jcSendBtn').disabled = false;
+}
+
+// ─── CHAT PANE UI ─────────────────────────────────────────────────────────────
+function appendMsg(role, html) {
+  $('jcEmpty')?.remove();
+  const convo = $('jcConvo');
+  const el = document.createElement('div');
+  el.className = 'jcard-msg ' + role;
+  if (role === 'jarvis') {
+    el.innerHTML = `<span class="jcard-msg-lbl">JARVIS</span>${html.replace(/\n/g, '<br>')}`;
+  } else { el.textContent = html; }
+  convo.appendChild(el);
+  convo.scrollTop = convo.scrollHeight;
+}
+function appendThinking() {
+  $('jcEmpty')?.remove();
+  const convo = $('jcConvo'); const el = document.createElement('div');
+  el.className = 'jcard-msg jarvis'; el.id = 'jcThinking';
+  el.innerHTML = `<span class="jcard-msg-lbl">JARVIS</span><div class="jcard-thinking"><span></span><span></span><span></span></div>`;
+  convo.appendChild(el); convo.scrollTop = convo.scrollHeight;
+}
+function removeThinking() { $('jcThinking')?.remove(); }
+
+$('jcSendBtn').addEventListener('click', () => {
+  const inp = $('jcInput'); const txt = inp.value.trim(); inp.value = '';
+  if (txt) { $('jcSendBtn').disabled = true; sendToJarvis(txt); }
+});
+$('jcInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('jcSendBtn').click(); }
+});
+
+// ─── VOICE INPUT ──────────────────────────────────────────────────────────────
+let recognition = null, voiceActive = false;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function initRecognition(onInterim, onFinal, onEnd) {
+  if (!SR) return null;
+  const rec = new SR();
+  rec.continuous = false; rec.interimResults = true; rec.lang = 'en-US';
+  rec.onresult = e => {
+    let t = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+    if (onInterim) onInterim(t);
+    if (e.results[e.results.length - 1].isFinal) { rec.stop(); if (onFinal) onFinal(t); }
+  };
+  rec.onerror = () => { rec.stop(); if (onEnd) onEnd(); };
+  rec.onend   = () => { voiceActive = false; if (onEnd) onEnd(); };
+  return rec;
+}
+
+// Chat mode mic button
+$('jcVoiceBtn').addEventListener('click', () => {
+  if (voiceActive && recognition) { recognition.stop(); return; }
+  recognition = initRecognition(
+    t => { $('jcInput').value = t; },
+    t => { $('jcInput').value = ''; $('jcVoiceBtn').classList.remove('listening'); sendToJarvis(t); },
+    ()  => { $('jcVoiceBtn').classList.remove('listening'); }
+  );
+  if (!recognition) { alert('Voice input requires Chrome or Edge.'); return; }
+  voiceActive = true;
+  $('jcVoiceBtn').classList.add('listening');
+  try { recognition.start(); } catch (e) {}
+});
+
+// ─── CALL MODE AUDIO VISUALIZATION ───────────────────────────────────────────
+let audioCtx = null, analyser = null, animFrame = null;
+let callState = 'idle'; // idle | listening | processing | speaking
+
+const canvas = $('jcCanvas');
+const ctx2d  = canvas.getContext('2d');
+const dpr    = window.devicePixelRatio || 1;
+
+function resizeCanvas() {
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawCanvas() {
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+  if (!w || !h) { animFrame = requestAnimationFrame(drawCanvas); return; }
+
+  ctx2d.clearRect(0, 0, w, h);
+
+  const mid   = h / 2;
+  const numBars = 52;
+  const gap     = 2;
+  const barW    = (w - gap * (numBars - 1)) / numBars;
+  const t       = Date.now() / 1000;
+
+  // Get real audio data if available and listening
+  let dataArray = null;
+  if (analyser && (callState === 'listening' || callState === 'speaking')) {
+    const bufLen = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufLen);
+    analyser.getByteFrequencyData(dataArray);
+  }
+
+  // Draw center line
+  ctx2d.fillStyle = 'rgba(0,229,255,0.08)';
+  ctx2d.fillRect(0, mid - 0.5, w, 1);
+
+  for (let i = 0; i < numBars; i++) {
+    let v;
+    if (dataArray && dataArray.length) {
+      const idx = Math.floor((i / numBars) * (dataArray.length * 0.7));
+      v = dataArray[idx] / 255;
+    } else {
+      // Generative idle / processing / speaking animations
+      const phase = i / numBars;
+      if (callState === 'idle') {
+        v = 0.06 + 0.09 * Math.abs(Math.sin(phase * Math.PI * 2.5 + t * 0.8)) * Math.sin(i * 0.09 + t * 0.5);
+      } else if (callState === 'processing') {
+        v = 0.12 + 0.22 * Math.abs(Math.sin(phase * Math.PI * 3 + t * 1.8)) * (0.6 + 0.4 * Math.sin(i * 0.15 + t * 1.2));
+      } else { // speaking
+        v = 0.18 + 0.45 * Math.abs(Math.sin(phase * Math.PI * 2 + t * 3.5)) * (0.5 + 0.5 * Math.sin(i * 0.2 + t * 4));
+      }
+    }
+
+    const barH = Math.max(2, v * mid * 0.88);
+    const x    = i * (barW + gap);
+
+    // Color: cyan at left, blend to gold at right
+    const ratio = i / (numBars - 1);
+    let r, g, b, alpha;
+    if (callState === 'processing' || callState === 'speaking') {
+      // Gold-dominant for Jarvis states
+      r = Math.round(180 + ratio * 62); g = Math.round(160 + ratio * 32); b = Math.round(80 - ratio * 20);
+      alpha = 0.35 + v * 0.55;
+    } else {
+      // Cyan to gold gradient for user/idle
+      const blend = Math.pow(ratio, 0.8);
+      r = Math.round(0   + blend * 242);
+      g = Math.round(229 - blend * 37);
+      b = Math.round(255 - blend * 156);
+      alpha = 0.30 + v * 0.60;
+    }
+    ctx2d.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+    ctx2d.fillRect(x, mid - barH, barW, barH);  // top half
+    ctx2d.fillRect(x, mid,        barW, barH);  // mirrored bottom
+  }
+
+  animFrame = requestAnimationFrame(drawCanvas);
+}
+
+async function startAudioCapture() {
+  if (audioCtx) return; // already started
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 128;
+    analyser.smoothingTimeConstant = 0.82;
+    source.connect(analyser);
+  } catch (e) {
+    // No mic — animation continues with generative data
+  }
+}
+
+function stopAudioCapture() {
+  if (audioCtx) { try { audioCtx.close(); } catch (e) {} audioCtx = null; analyser = null; }
+}
+
+// ─── CALL MODE MIC BUTTON ─────────────────────────────────────────────────────
+let callRec = null;
+
+$('jcMicBtn').addEventListener('click', async () => {
+  if (callState === 'processing') return;
+  if (callState === 'speaking') { speechSynthesis.cancel(); setCallState('idle'); return; }
+  if (callState === 'listening') { if (callRec) callRec.stop(); setCallState('idle'); return; }
+
+  // Start listening
+  await startAudioCapture();
+  callRec = initRecognition(
+    null,
+    text => {
+      if (text) { setCallState('processing'); sendToJarvis(text); }
+      else        setCallState('idle');
+    },
+    () => { if (callState === 'listening') setCallState('idle'); }
+  );
+  if (!callRec) { alert('Voice input requires Chrome or Edge.'); return; }
+  setCallState('listening');
+  try { callRec.start(); } catch (e) {}
+});
+
+function setCallState(state) {
+  callState = state;
+  const btn    = $('jcMicBtn');
+  const status = $('jcCallStatus');
+  btn.classList.remove('active', 'processing');
+  status.className = 'jc-call-status';
+
+  if (state === 'listening')   { btn.classList.add('active');      status.textContent = 'Listening to Nicolas…'; status.classList.add('listening'); }
+  if (state === 'processing')  { btn.classList.add('processing');  status.textContent = 'Jarvis is thinking…';   status.classList.add('processing'); }
+  if (state === 'speaking')    { status.textContent = 'Jarvis is speaking…'; status.classList.add('speaking'); }
+  if (state === 'idle')        { status.textContent = 'Tap the mic to speak'; }
+}
+
+function speakJarvis(text) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const clean = text.replace(/\*\*|__|\*|_|`|#{1,6}\s/g, '').replace(/<br>/g, ' ');
+  const u = new SpeechSynthesisUtterance(clean);
+  u.rate = 0.92; u.pitch = 0.86; u.volume = 1;
+  function trySpeak() {
+    const voices = speechSynthesis.getVoices();
+    const pref = voices.find(v => /daniel|alex|david|james|mark/i.test(v.name) && /en/i.test(v.lang))
+      || voices.find(v => /en-US/i.test(v.lang) && !v.name.includes('Google'))
+      || voices.find(v => /en/i.test(v.lang));
+    if (pref) u.voice = pref;
+    u.onstart = () => setCallState('speaking');
+    u.onend   = () => { if (callState === 'speaking') setCallState('idle'); };
+    u.onerror = () => setCallState('idle');
+    speechSynthesis.speak(u);
+  }
+  speechSynthesis.getVoices().length ? trySpeak() : speechSynthesis.addEventListener('voiceschanged', trySpeak, { once: true });
+}
+
+// ─── MODE TOGGLE ──────────────────────────────────────────────────────────────
+let currentMode = 'chat';
+
+function setCardState(state) {
+  // state: 'chat' | 'call-idle' | 'processing'
+  const dot = $('jcStatusDot');
+  if (state === 'processing') { dot.style.background = 'var(--gold)'; }
+  else { dot.style.background = 'var(--emerald)'; }
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  const chatPane = $('jcChatPane'), callPane = $('jcCallPane');
+  const chatBtn  = $('jcChatBtn'),  callBtn  = $('jcCallBtn');
+
+  if (mode === 'chat') {
+    chatPane.style.display = ''; callPane.style.display = 'none';
+    chatBtn.classList.add('active'); chatBtn.classList.remove('call');
+    callBtn.classList.remove('active', 'call');
+    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
   } else {
-    // No voice support — just show input for typing
-    setTimeout(() => $('jInput').focus(), 100);
+    chatPane.style.display = 'none'; callPane.style.display = 'flex';
+    callBtn.classList.add('active', 'call'); chatBtn.classList.remove('active');
+    // Start canvas
+    resizeCanvas();
+    if (!animFrame) drawCanvas();
+    setCallState('idle');
   }
+}
+
+$('jcChatBtn').addEventListener('click', () => switchMode('chat'));
+$('jcCallBtn').addEventListener('click', () => switchMode('call'));
+
+window.addEventListener('resize', () => {
+  if (currentMode === 'call') resizeCanvas();
 });
 
-// Dismiss bubble on Escape
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    hideBubble();
-    if (fabState === 'listening' && recognition) { recognition.stop(); }
-    setState('idle');
-  }
-});
+// ─── GLOBAL FAB HOOK ──────────────────────────────────────────────────────────
+// When global FAB is tapped on this page, scroll to + activate the Jarvis card
+window.jarvis = window.jarvis || {};
+window.jarvis._activateCard = () => {
+  $('jcard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (currentMode === 'chat') { setTimeout(() => $('jcInput').focus(), 350); }
+};
 
-// ── BOOT ──────────────────────────────────────────────────────────────────
+// Re-render modules when jarvis-fab.js updates storage from another context
+window.addEventListener('jarvis-data-update', () => { renderSetter(); renderCF(); renderKPIs(); });
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
 renderSetter();
 renderCF();
 renderKPIs();

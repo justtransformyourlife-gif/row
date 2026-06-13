@@ -10,6 +10,7 @@
 // =============================================================
 (function () {
   'use strict';
+  const _thisScriptSrc = document.currentScript ? document.currentScript.src : '';
 
   // -------- Supabase config (same project as the rest of the dashboard) --------
   // For your audience's standalone, replace these with placeholders
@@ -425,6 +426,14 @@ body.topbar-modal-open {
 
     // Periodic refresh so counts stay current after midnight rollover etc.
     setInterval(render, 30 * 1000);
+
+    // Inject Jarvis global FAB on every page
+    if (!document.getElementById('jg-root')) {
+      const s = document.createElement('script');
+      const base = _thisScriptSrc.replace(/topbar\.js([?#].*)?$/, '');
+      s.src = base + 'jarvis-fab.js';
+      document.head.appendChild(s);
+    }
   }
 
   if (document.readyState === 'loading') {
