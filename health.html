@@ -516,7 +516,7 @@ main {
     return `${y}-${m}-${d}`;
   }
 
-  const TEMPLATE_VERSION = 5;
+  const TEMPLATE_VERSION = 6;
 
   const STACK_DEFAULTS = [
     { id: 'm1', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
@@ -619,12 +619,26 @@ main {
   function getItems() {
     const storedVersion = storeGet('stack:version');
     const stored = storeGet('stack:items');
-    if (!stored || !Array.isArray(stored) || !stored.length || storedVersion !== TEMPLATE_VERSION) {
+
+    // Fresh install — no items at all
+    if (!stored || !Array.isArray(stored) || !stored.length) {
       const fresh = JSON.parse(JSON.stringify(STACK_DEFAULTS));
       storeSet('stack:items', fresh);
       storeSet('stack:version', TEMPLATE_VERSION);
       return fresh;
     }
+
+    // Version bumped — KEEP all existing items (preserve custom labels),
+    // just merge in any brand-new default slots that don't exist yet by id
+    if (storedVersion !== TEMPLATE_VERSION) {
+      const existingIds = new Set(stored.map(i => i.id));
+      const newDefaults = STACK_DEFAULTS.filter(d => !existingIds.has(d.id));
+      const merged = [...stored, ...newDefaults];
+      storeSet('stack:items', merged);
+      storeSet('stack:version', TEMPLATE_VERSION);
+      return merged;
+    }
+
     return stored;
   }
   function setItems(items) { storeSet('stack:items', items); }
