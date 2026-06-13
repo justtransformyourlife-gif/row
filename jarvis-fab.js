@@ -9,10 +9,10 @@
   // ══════════════════════════════════════════════════════════════════════
   // CONFIG  — key is stored in localStorage, never in source code
   // ══════════════════════════════════════════════════════════════════════
-  const GEMINI_MODEL   = 'gemini-1.5-flash';
-  const K_GEMINI       = 'jarvis_gemini_key';
-  let   GEMINI_KEY     = localStorage.getItem(K_GEMINI) || '';
-  window.JARVIS_KEY    = GEMINI_KEY;  // shared with jarvis.html
+  const GROQ_MODEL = 'llama-3.3-70b-versatile';
+  const K_GROQ     = 'jarvis_groq_key';
+  let   GROQ_KEY   = localStorage.getItem(K_GROQ) || '';
+  window.JARVIS_KEY = GROQ_KEY;
 
   // ── storage keys ──────────────────────────────────────────────────────
   const K_SETTER = 'jarvis_setter';
@@ -427,8 +427,8 @@
     <div id="jg-settings-pane" style="display:none">
       <div id="jg-settings-body">
         <p class="jg-settings-label">GEMINI API KEY</p>
-        <input id="jg-key-input" type="password" placeholder="Paste your Gemini API key…" autocomplete="off" autocorrect="off" spellcheck="false">
-        <p class="jg-settings-hint">Get a free key at <strong>aistudio.google.com/apikey</strong></p>
+        <input id="jg-key-input" type="password" placeholder="Paste your Groq API key (gsk_…)" autocomplete="off" autocorrect="off" spellcheck="false">
+        <p class="jg-settings-hint">Free key at <strong>console.groq.com</strong> → API Keys</p>
         <button id="jg-key-save">Save &amp; Connect</button>
         <button id="jg-key-clear" style="display:none">Remove Key</button>
       </div>
@@ -537,84 +537,73 @@ TONE:
 ✓ "2L in. You're at 67%. Third bottle before your next session — non-negotiable."
 ✗ "Great job staying hydrated! That's so important for your performance!"`;
 
-  const TOOLS = [{
-    functionDeclarations: [
-      { name: 'log_water', description: 'Log water intake. Call when user mentions drinking water, bottles, or liters.',
-        parameters: { type: 'OBJECT', properties: { liters: { type: 'NUMBER' } }, required: ['liters'] } },
-      { name: 'log_setter', description: 'Log Mantilla setter activity.',
-        parameters: { type: 'OBJECT', properties: {
-          alignment_call: { type: 'BOOLEAN' }, lead_list: { type: 'BOOLEAN' },
-          scripts: { type: 'BOOLEAN' }, outreach_sent: { type: 'BOOLEAN' },
-          dms: { type: 'NUMBER' }, replies: { type: 'NUMBER' }, calls: { type: 'NUMBER' },
-          feedback: { type: 'STRING' }
-        }}},
-      { name: 'log_cashflow', description: 'Log business income or expense.',
-        parameters: { type: 'OBJECT', properties: {
-          type: { type: 'STRING', enum: ['in','out'] }, amount: { type: 'NUMBER' }, desc: { type: 'STRING' }
-        }, required: ['type','amount'] }},
-      { name: 'log_outreach', description: 'Log personal DM outreach or calls by Nicolas.',
-        parameters: { type: 'OBJECT', properties: { dms: { type: 'NUMBER' }, calls: { type: 'NUMBER' } } }},
-      { name: 'log_content', description: 'Log a content post, update streak.',
-        parameters: { type: 'OBJECT', properties: { type: { type: 'STRING' } } }}
-    ]
-  }];
+  const TOOLS = [
+    { type: 'function', function: { name: 'log_water', description: 'Log water intake in liters.',
+        parameters: { type: 'object', properties: { liters: { type: 'number' } }, required: ['liters'] } } },
+    { type: 'function', function: { name: 'log_setter', description: 'Log Mantilla setter activity.',
+        parameters: { type: 'object', properties: {
+          alignment_call: { type: 'boolean' }, lead_list: { type: 'boolean' },
+          scripts: { type: 'boolean' }, outreach_sent: { type: 'boolean' },
+          dms: { type: 'number' }, replies: { type: 'number' }, calls: { type: 'number' },
+          feedback: { type: 'string' }
+        } } } },
+    { type: 'function', function: { name: 'log_cashflow', description: 'Log business income or expense.',
+        parameters: { type: 'object', properties: {
+          type: { type: 'string', enum: ['in','out'] }, amount: { type: 'number' }, desc: { type: 'string' }
+        }, required: ['type','amount'] } } },
+    { type: 'function', function: { name: 'log_outreach', description: 'Log DM outreach or calls.',
+        parameters: { type: 'object', properties: { dms: { type: 'number' }, calls: { type: 'number' } } } } },
+    { type: 'function', function: { name: 'log_content', description: 'Log a content post, update streak.',
+        parameters: { type: 'object', properties: { type: { type: 'string' } } } } },
+  ];
 
-  async function geminiCall(model) {
-    model = model || GEMINI_MODEL;
-    const body = JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      tools: TOOLS,
-      tool_config: { function_calling_config: { mode: 'AUTO' } },
-      contents: conversation,
-      generation_config: { temperature: 0.65, max_output_tokens: 512 }
+  async function groqCall() {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_KEY },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: conversation,
+        tools: TOOLS,
+        tool_choice: 'auto',
+        temperature: 0.65,
+        max_tokens: 512,
+      })
     });
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${GEMINI_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
-    );
     if (!res.ok) {
       const e = await res.json().catch(() => ({}));
-      const msg = e.error?.message || `HTTP ${res.status}`;
-      // Permission error on primary model → retry with 1.5-flash fallback
-      if ((res.status === 403 || res.status === 404) && model !== 'gemini-1.0-pro') {
-        return geminiCall('gemini-1.0-pro');
-      }
-      throw new Error(msg);
+      throw new Error(e.error?.message || `HTTP ${res.status}`);
     }
     return res.json();
   }
 
-  // ── Mock mode — used when no valid AIza key is present ───────────────
+  // ── Mock mode — active when no valid gsk_ key is present ─────────────
   const MOCK_REPLIES = [
-    t => /water|bottle|drink/i.test(t)     && 'Mock ✓ Logged your water. You\'re at 2 bottles today — keep it up.',
+    t => /water|bottle|drink/i.test(t)              && 'Mock ✓ Water logged. You\'re at 2 bottles today — keep it up.',
     t => /setter|mantilla|call|dm|outreach/i.test(t) && 'Mock ✓ Setter activity logged. Mantilla is on track for the week.',
-    t => /cash|revenue|client|\$|income/i.test(t) && 'Mock ✓ Cashflow entry recorded. Checking your weekly trend…',
-    t => /kpi|goal|target|metric/i.test(t) && 'Mock ✓ KPI updated. You\'re 80% toward this week\'s target.',
-    t => /meal|eat|food|lunch|dinner|breakfast/i.test(t) && 'Mock ✓ Meal noted. Remember to log it in the nutrition tracker too.',
-    t => /hey|hi|hello|what|who/i.test(t)  && 'Mock — Jarvis here. I\'m running in demo mode. Add a real AIza key via ⚙ to unlock live AI.',
+    t => /cash|revenue|client|\$|income/i.test(t)   && 'Mock ✓ Cashflow entry recorded.',
+    t => /kpi|goal|target|metric/i.test(t)           && 'Mock ✓ KPI updated. 80% toward this week\'s target.',
+    t => /meal|eat|food|lunch|dinner|breakfast/i.test(t) && 'Mock ✓ Meal noted.',
+    t => /hey|hi|hello|what|who/i.test(t)            && 'Mock — Jarvis here. Running in demo mode. Add a Groq key via ⚙ to unlock live AI.',
   ];
-
   function mockReply(text) {
-    for (const fn of MOCK_REPLIES) {
-      const r = fn(text);
-      if (r) return r;
-    }
-    return 'Mock — got it. (Demo mode active — add a real AIza key via ⚙ for live responses.)';
+    for (const fn of MOCK_REPLIES) { const r = fn(text); if (r) return r; }
+    return 'Mock — got it. (Demo mode — paste a Groq key via ⚙ for live responses.)';
   }
 
-  function isValidKey(k) { return typeof k === 'string' && k.startsWith('AIza'); }
+  function isValidKey(k) { return typeof k === 'string' && k.startsWith('gsk_'); }
 
   async function send(text) {
     text = (text || '').trim();
     if (!text || isProcessing) return;
 
-    if (!isValidKey(GEMINI_KEY)) {
+    if (!isValidKey(GROQ_KEY)) {
       appendMsg('user', text);
-      await new Promise(r => setTimeout(r, 420));
+      await new Promise(r => setTimeout(r, 380));
       const reply = mockReply(text);
       appendMsg('jarvis', reply, 'mock');
       emit('response', { text: reply });
-      if (currentMode === 'call') { speakJarvis(reply); }
+      if (currentMode === 'call') speakJarvis(reply);
       return;
     }
 
@@ -624,44 +613,40 @@ TONE:
     if (currentMode === 'call') setCallState('processing');
 
     appendMsg('user', text);
-    conversation.push({ role: 'user', parts: [{ text }] });
+    conversation.push({ role: 'user', content: text });
     appendThinking();
 
     try {
-      let resp = await geminiCall();
-      removeThinking();
-
       for (let i = 0; i < 6; i++) {
-        const parts   = resp.candidates?.[0]?.content?.parts || [];
-        const fnCalls = parts.filter(p => p.functionCall);
-        const txtPts  = parts.filter(p => p.text);
+        const resp    = await groqCall();
+        removeThinking();
+        const msg     = resp.choices?.[0]?.message;
+        const finish  = resp.choices?.[0]?.finish_reason;
 
-        if (!fnCalls.length) {
-          const finalTxt = txtPts.map(p => p.text).join('');
-          if (finalTxt) {
-            appendMsg('jarvis', finalTxt);
-            emit('response', { text: finalTxt });
-            if (currentMode === 'call') {
-              setCallState('speaking');
-              showLastResponse(finalTxt);
-              speakJarvis(finalTxt);
-            }
+        if (!msg) break;
+        conversation.push(msg);
+
+        if (finish === 'tool_calls' && msg.tool_calls?.length) {
+          for (const tc of msg.tool_calls) {
+            let args = {};
+            try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
+            const result = runFn(tc.function.name, args);
+            conversation.push({ role: 'tool', tool_call_id: tc.id, content: result });
           }
-          conversation.push({ role: 'model', parts });
-          break;
+          if (i < 5) { appendThinking(); continue; }
         }
 
-        conversation.push({ role: 'model', parts });
-        const fnResps = fnCalls.map(p => ({
-          functionResponse: { name: p.functionCall.name, response: { result: runFn(p.functionCall.name, p.functionCall.args || {}) } }
-        }));
-        conversation.push({ role: 'user', parts: fnResps });
-
-        if (i < 5) { appendThinking(); resp = await geminiCall(); removeThinking(); }
+        const finalTxt = msg.content || '';
+        if (finalTxt) {
+          appendMsg('jarvis', finalTxt);
+          emit('response', { text: finalTxt });
+          if (currentMode === 'call') { setCallState('speaking'); showLastResponse(finalTxt); speakJarvis(finalTxt); }
+        }
+        break;
       }
     } catch (err) {
       removeThinking();
-      const msg = '⚠ ' + (err.message || 'Could not reach Gemini.');
+      const msg = '⚠ ' + (err.message || 'Could not reach Groq.');
       appendMsg('jarvis', msg);
       emit('response', { text: msg, error: true });
     }
@@ -906,8 +891,8 @@ TONE:
       settingsBtn.classList.toggle('active', show);
       settingsPane.style.display = show ? '' : 'none';
       if (show) {
-        keyInput.value = GEMINI_KEY ? '•'.repeat(20) : '';
-        keyClear.style.display = GEMINI_KEY ? '' : 'none';
+        keyInput.value = GROQ_KEY ? '•'.repeat(20) : '';
+        keyClear.style.display = GROQ_KEY ? '' : 'none';
         chatPane.style.display = 'none';
         callPane.style.display = 'none';
       } else {
@@ -923,19 +908,19 @@ TONE:
     keySave.addEventListener('click', () => {
       const val = keyInput.value.trim();
       if (!val || val === '•'.repeat(20)) return;
-      GEMINI_KEY = val;
+      GROQ_KEY = val;
       window.JARVIS_KEY = val;
-      localStorage.setItem(K_GEMINI, val);
+      localStorage.setItem(K_GROQ, val);
       showSettingsPane(false);
-      appendMsg('jarvis', 'API key saved. Jarvis is ready.');
+      appendMsg('jarvis', 'Groq key saved. Jarvis is live.');
     });
 
     keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') keySave.click(); });
 
     keyClear.addEventListener('click', () => {
-      GEMINI_KEY = '';
+      GROQ_KEY = '';
       window.JARVIS_KEY = '';
-      localStorage.removeItem(K_GEMINI);
+      localStorage.removeItem(K_GROQ);
       keyInput.value = '';
       keyClear.style.display = 'none';
     });
@@ -944,7 +929,7 @@ TONE:
     const origOpen = openOverlay;
     openOverlay = function() {
       origOpen();
-      if (!GEMINI_KEY) showSettingsPane(true);
+      if (!isValidKey(GROQ_KEY)) showSettingsPane(true);
     };
   }
 
