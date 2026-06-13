@@ -188,6 +188,10 @@
   font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em;
   color: #00E5FF; margin-bottom: 4px; text-transform: uppercase;
 }
+.jg-msg.mock { border-color: rgba(242,192,99,0.20); }
+.jg-msg.mock .jg-msg-label::after {
+  content: ' · DEMO'; color: rgba(242,192,99,0.60); font-size: 8px;
+}
 .jg-empty {
   flex: 1; display: flex; align-items: center; justify-content: center;
   color: rgba(255,255,255,0.22); font-size: 12px; text-align: center;
@@ -580,14 +584,37 @@ TONE:
     return res.json();
   }
 
+  // ── Mock mode — used when no valid AIza key is present ───────────────
+  const MOCK_REPLIES = [
+    t => /water|bottle|drink/i.test(t)     && 'Mock ✓ Logged your water. You\'re at 2 bottles today — keep it up.',
+    t => /setter|mantilla|call|dm|outreach/i.test(t) && 'Mock ✓ Setter activity logged. Mantilla is on track for the week.',
+    t => /cash|revenue|client|\$|income/i.test(t) && 'Mock ✓ Cashflow entry recorded. Checking your weekly trend…',
+    t => /kpi|goal|target|metric/i.test(t) && 'Mock ✓ KPI updated. You\'re 80% toward this week\'s target.',
+    t => /meal|eat|food|lunch|dinner|breakfast/i.test(t) && 'Mock ✓ Meal noted. Remember to log it in the nutrition tracker too.',
+    t => /hey|hi|hello|what|who/i.test(t)  && 'Mock — Jarvis here. I\'m running in demo mode. Add a real AIza key via ⚙ to unlock live AI.',
+  ];
+
+  function mockReply(text) {
+    for (const fn of MOCK_REPLIES) {
+      const r = fn(text);
+      if (r) return r;
+    }
+    return 'Mock — got it. (Demo mode active — add a real AIza key via ⚙ for live responses.)';
+  }
+
+  function isValidKey(k) { return typeof k === 'string' && k.startsWith('AIza'); }
+
   async function send(text) {
     text = (text || '').trim();
     if (!text || isProcessing) return;
 
-    if (!GEMINI_KEY) {
-      const msg = 'No API key set. Tap ⚙ in the top-right corner of this panel to add your Gemini key.';
-      appendMsg('jarvis', msg);
-      emit('response', { text: msg });
+    if (!isValidKey(GEMINI_KEY)) {
+      appendMsg('user', text);
+      await new Promise(r => setTimeout(r, 420));
+      const reply = mockReply(text);
+      appendMsg('jarvis', reply, 'mock');
+      emit('response', { text: reply });
+      if (currentMode === 'call') { speakJarvis(reply); }
       return;
     }
 
@@ -761,12 +788,12 @@ TONE:
     if (el) el.textContent = text;
   }
 
-  function appendMsg(role, html) {
+  function appendMsg(role, html, extra) {
     const convo = document.getElementById('jg-convo');
     if (!convo) return;
     document.getElementById('jg-empty')?.remove();
     const el = document.createElement('div');
-    el.className = 'jg-msg ' + role;
+    el.className = 'jg-msg ' + role + (extra ? ' ' + extra : '');
     if (role === 'jarvis') {
       el.innerHTML = `<span class="jg-msg-label">JARVIS</span>${html.replace(/\n/g, '<br>')}`;
     } else {
