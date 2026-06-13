@@ -211,11 +211,11 @@ body.topbar-modal-open {
     document.body.insertBefore(wrap.firstChild, document.body.firstChild);
   }
 
-  // -------- Active-date helpers (match the goals page 6 AM rollover) --------
+  // -------- Active-date helpers (match the goals page 3 AM rollover) --------
   function activeDateKey() {
     const now = new Date();
     const d = new Date(now);
-    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
+    if (now.getHours() < 3) d.setDate(d.getDate() - 1);
     return d.getFullYear() + '-' +
       String(d.getMonth() + 1).padStart(2, '0') + '-' +
       String(d.getDate()).padStart(2, '0');
