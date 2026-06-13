@@ -7,11 +7,12 @@
   'use strict';
 
   // ══════════════════════════════════════════════════════════════════════
-  // CONFIG  ← set your Gemini key here (one place for all pages)
+  // CONFIG  — key is stored in localStorage, never in source code
   // ══════════════════════════════════════════════════════════════════════
-  const GEMINI_KEY   = '';          // aistudio.google.com/apikey
-  const GEMINI_MODEL = 'gemini-2.0-flash';
-  window.JARVIS_KEY  = GEMINI_KEY;  // shared with jarvis.html
+  const GEMINI_MODEL   = 'gemini-2.0-flash';
+  const K_GEMINI       = 'jarvis_gemini_key';
+  let   GEMINI_KEY     = localStorage.getItem(K_GEMINI) || '';
+  window.JARVIS_KEY    = GEMINI_KEY;  // shared with jarvis.html
 
   // ── storage keys ──────────────────────────────────────────────────────
   const K_SETTER = 'jarvis_setter';
@@ -304,6 +305,37 @@
 }
 .jg-last-response::-webkit-scrollbar { display: none; }
 .jg-last-response:empty { display: none; }
+
+#jg-settings-pane { padding: 12px 4px 4px; }
+#jg-settings-body { display: flex; flex-direction: column; gap: 10px; }
+.jg-settings-label {
+  margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  color: rgba(255,255,255,0.35); text-transform: uppercase;
+}
+.jg-settings-hint { margin: 0; font-size: 11px; color: rgba(255,255,255,0.30); line-height: 1.5; }
+.jg-settings-hint strong { color: rgba(255,255,255,0.50); font-weight: 600; }
+#jg-key-input {
+  width: 100%; padding: 11px 14px; box-sizing: border-box;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; color: #fff; font-size: 13px;
+  font-family: 'SF Mono', 'Fira Code', monospace; outline: none;
+  transition: border-color 0.15s;
+}
+#jg-key-input:focus { border-color: rgba(0,229,255,0.45); }
+#jg-key-save {
+  width: 100%; padding: 12px; background: #00E5FF; border: none;
+  border-radius: 10px; color: #000; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: opacity 0.15s;
+}
+#jg-key-save:hover { opacity: 0.85; }
+#jg-key-clear {
+  width: 100%; padding: 10px; background: none;
+  border: 1px solid rgba(255,80,80,0.30); border-radius: 10px;
+  color: rgba(255,100,100,0.70); font-size: 13px; cursor: pointer;
+  transition: all 0.15s;
+}
+#jg-key-clear:hover { background: rgba(255,80,80,0.08); color: #ff6060; }
+#jg-settings-btn.active { color: #00E5FF; }
 `;
 
   // ══════════════════════════════════════════════════════════════════════
@@ -345,6 +377,7 @@
         <button class="jg-mode-btn" id="jg-btn-call">📞 Call</button>
       </div>
       <div class="jg-hd-actions">
+        <button class="jg-icon-btn" id="jg-settings-btn" title="API Key settings">⚙</button>
         <a class="jg-icon-btn" href="jarvis.html" title="Open full Jarvis">↗</a>
         <button class="jg-icon-btn" id="jg-close" aria-label="Close">✕</button>
       </div>
@@ -384,6 +417,17 @@
         </svg>
       </button>
       <div class="jg-last-response" id="jg-last-response"></div>
+    </div>
+
+    <!-- Settings pane -->
+    <div id="jg-settings-pane" style="display:none">
+      <div id="jg-settings-body">
+        <p class="jg-settings-label">GEMINI API KEY</p>
+        <input id="jg-key-input" type="password" placeholder="Paste your Gemini API key…" autocomplete="off" autocorrect="off" spellcheck="false">
+        <p class="jg-settings-hint">Get a free key at <strong>aistudio.google.com/apikey</strong></p>
+        <button id="jg-key-save">Save &amp; Connect</button>
+        <button id="jg-key-clear" style="display:none">Remove Key</button>
+      </div>
     </div>
   </div>
 </div>`;
@@ -533,7 +577,7 @@ TONE:
     if (!text || isProcessing) return;
 
     if (!GEMINI_KEY) {
-      const msg = 'Set GEMINI_KEY in jarvis-fab.js to enable AI. Get one free at aistudio.google.com/apikey';
+      const msg = 'No API key set. Tap ⚙ in the top-right corner of this panel to add your Gemini key.';
       appendMsg('jarvis', msg);
       emit('response', { text: msg });
       return;
@@ -813,6 +857,60 @@ TONE:
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && overlayOpen) closeOverlay();
     });
+
+    // ── Settings pane ──────────────────────────────────────────────────
+    const settingsBtn  = document.getElementById('jg-settings-btn');
+    const settingsPane = document.getElementById('jg-settings-pane');
+    const chatPane     = document.getElementById('jg-chat-pane');
+    const callPane     = document.getElementById('jg-call-pane');
+    const keyInput     = document.getElementById('jg-key-input');
+    const keySave      = document.getElementById('jg-key-save');
+    const keyClear     = document.getElementById('jg-key-clear');
+
+    function showSettingsPane(show) {
+      settingsBtn.classList.toggle('active', show);
+      settingsPane.style.display = show ? '' : 'none';
+      if (show) {
+        keyInput.value = GEMINI_KEY ? '•'.repeat(20) : '';
+        keyClear.style.display = GEMINI_KEY ? '' : 'none';
+        chatPane.style.display = 'none';
+        callPane.style.display = 'none';
+      } else {
+        switchMode(currentMode);
+      }
+    }
+
+    settingsBtn.addEventListener('click', () => {
+      const isOpen = settingsPane.style.display !== 'none';
+      showSettingsPane(!isOpen);
+    });
+
+    keySave.addEventListener('click', () => {
+      const val = keyInput.value.trim();
+      if (!val || val === '•'.repeat(20)) return;
+      GEMINI_KEY = val;
+      window.JARVIS_KEY = val;
+      localStorage.setItem(K_GEMINI, val);
+      showSettingsPane(false);
+      appendMsg('jarvis', 'API key saved. Jarvis is ready.');
+    });
+
+    keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') keySave.click(); });
+
+    keyClear.addEventListener('click', () => {
+      GEMINI_KEY = '';
+      window.JARVIS_KEY = '';
+      localStorage.removeItem(K_GEMINI);
+      keyInput.value = '';
+      keyClear.style.display = 'none';
+    });
+
+    // Auto-open settings if no key is set on first open
+    const origOpen = openOverlay;
+    openOverlay = function() {
+      origOpen();
+      if (!GEMINI_KEY) showSettingsPane(true);
+    };
   }
 
   // ══════════════════════════════════════════════════════════════════════
