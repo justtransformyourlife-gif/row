@@ -9,7 +9,7 @@
   // ══════════════════════════════════════════════════════════════════════
   // CONFIG  — key is stored in localStorage, never in source code
   // ══════════════════════════════════════════════════════════════════════
-  const GEMINI_MODEL   = 'gemini-2.0-flash';
+  const GEMINI_MODEL   = 'gemini-1.5-flash-latest';
   const K_GEMINI       = 'jarvis_gemini_key';
   let   GEMINI_KEY     = localStorage.getItem(K_GEMINI) || '';
   window.JARVIS_KEY    = GEMINI_KEY;  // shared with jarvis.html
@@ -555,20 +555,28 @@ TONE:
     ]
   }];
 
-  async function geminiCall() {
+  async function geminiCall(model) {
+    model = model || GEMINI_MODEL;
+    const body = JSON.stringify({
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      tools: TOOLS,
+      tool_config: { function_calling_config: { mode: 'AUTO' } },
+      contents: conversation,
+      generation_config: { temperature: 0.65, max_output_tokens: 512 }
+    });
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          tools: TOOLS,
-          tool_config: { function_calling_config: { mode: 'AUTO' } },
-          contents: conversation,
-          generation_config: { temperature: 0.65, max_output_tokens: 512 }
-        })
-      }
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
     );
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || `HTTP ${res.status}`); }
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      const msg = e.error?.message || `HTTP ${res.status}`;
+      // Permission error on primary model → retry with 1.5-flash fallback
+      if ((res.status === 403 || res.status === 404) && model !== 'gemini-1.5-flash') {
+        return geminiCall('gemini-1.5-flash');
+      }
+      throw new Error(msg);
+    }
     return res.json();
   }
 
